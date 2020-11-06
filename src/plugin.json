@@ -1,0 +1,39 @@
+{
+  "type": "datasource",
+  "name": "xmlfeed",
+  "id": "octopus-deploy-xmlfeed",
+  "metrics": true,
+  "backend": true,
+  "executable": "gpx_xmlfeed",
+  "info": {
+    "description": "Backend datasource to connect to an Octopus XML feed",
+    "author": {
+      "name": "Matthew Casperson",
+      "url": ""
+    },
+    "keywords": [
+      "octopus"
+    ],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "links": [
+      {
+        "name": "Website",
+        "url": "https://github.com/grafana/simple-datasource-backend"
+      },
+      {
+        "name": "License",
+        "url": "https://github.com/grafana/simple-datasource-backend/blob/master/LICENSE"
+      }
+    ],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaVersion": "7.x.x",
+    "plugins": []
+  }
+}
