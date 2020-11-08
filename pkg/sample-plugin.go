@@ -224,7 +224,7 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("competedtime", nil, extractTimeColumn(deployments, func(deployment Deployment) string { return deployment.CompletedTime })),
+		data.NewField("time", nil, extractTimeColumn(deployments, func(deployment Deployment) string { return deployment.CompletedTime })),
 	)
 
 	frame.Fields = append(frame.Fields,
