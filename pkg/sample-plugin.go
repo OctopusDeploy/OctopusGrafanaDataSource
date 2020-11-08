@@ -40,15 +40,16 @@ type SampleDatasource struct {
 }
 
 type jsonData struct {
-	Path string
+	Server  string
+	SpaceId string
 }
 
-func getConnectionDetails(context backend.PluginContext) (string, string) {
+func getConnectionDetails(context backend.PluginContext) (string, string, string) {
 	var jsonData jsonData
 	json.Unmarshal(context.DataSourceInstanceSettings.JSONData, &jsonData)
 	apiKey := context.DataSourceInstanceSettings.DecryptedSecureJSONData["apiKey"]
 
-	return jsonData.Path, apiKey
+	return jsonData.Server, jsonData.SpaceId, apiKey
 }
 
 // QueryData handles multiple queries and returns multiple responses.
@@ -61,9 +62,9 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 	// create response struct
 	response := backend.NewQueryDataResponse()
 
-	path, apiKey := getConnectionDetails(req.PluginContext)
+	server, space, apiKey := getConnectionDetails(req.PluginContext)
 
-	result, err := httpGet(path + "/api/reporting/deployments/xml?apikey=" + apiKey)
+	result, err := httpGet(server + "/api/" + space + "/reporting/deployments/xml?apikey=" + apiKey)
 	if err != nil {
 		return response, nil
 	}
@@ -243,9 +244,9 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 func (td *SampleDatasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
 	log.DefaultLogger.Info("CheckHealth")
 
-	path, apiKey := getConnectionDetails(req.PluginContext)
+	path, space, apiKey := getConnectionDetails(req.PluginContext)
 
-	_, err := httpGet(path + "/api/reporting/deployments/xml?apikey=" + apiKey)
+	_, err := httpGet(path + "/api/" + space + "/reporting/deployments/xml?apikey=" + apiKey)
 
 	if err != nil {
 		return &backend.CheckHealthResult{

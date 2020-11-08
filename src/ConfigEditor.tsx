@@ -10,11 +10,20 @@ interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions> 
 interface State {}
 
 export class ConfigEditor extends PureComponent<Props, State> {
-  onPathChange = (event: ChangeEvent<HTMLInputElement>) => {
+  onServerChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
     const jsonData = {
       ...options.jsonData,
-      path: event.target.value,
+      server: event.target.value,
+    };
+    onOptionsChange({ ...options, jsonData });
+  };
+
+  onSpaceChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { onOptionsChange, options } = this.props;
+    const jsonData = {
+      ...options.jsonData,
+      spaceId: event.target.value,
     };
     onOptionsChange({ ...options, jsonData });
   };
@@ -54,11 +63,22 @@ export class ConfigEditor extends PureComponent<Props, State> {
       <div className="gf-form-group">
         <div className="gf-form">
           <FormField
-            label="Path"
+            label="Server"
             labelWidth={6}
             inputWidth={20}
-            onChange={this.onPathChange}
-            value={jsonData.path || ''}
+            onChange={this.onServerChange}
+            value={jsonData.server || ''}
+            placeholder="json field returned to frontend"
+          />
+        </div>
+
+        <div className="gf-form">
+          <FormField
+            label="Space Id"
+            labelWidth={6}
+            inputWidth={20}
+            onChange={this.onSpaceChange}
+            value={jsonData.spaceId || ''}
             placeholder="json field returned to frontend"
           />
         </div>

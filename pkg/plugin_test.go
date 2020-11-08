@@ -10,7 +10,7 @@ func TestConnection(t *testing.T) {
 	request := backend.QueryDataRequest{
 		PluginContext: backend.PluginContext{
 			DataSourceInstanceSettings: &backend.DataSourceInstanceSettings{
-				JSONData:                []byte("{\"Path\": \"" + os.Getenv("SERVER") + "\"}"),
+				JSONData:                []byte("{\"Server\": \"" + os.Getenv("SERVER") + "\", \"SpaceId\": \"" + os.Getenv("SPACE") + "\"}"),
 				DecryptedSecureJSONData: map[string]string{"apiKey": os.Getenv("APIKEY")},
 			},
 		},
