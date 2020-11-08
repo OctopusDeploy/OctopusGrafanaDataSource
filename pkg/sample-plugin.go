@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const dateFormat = "2006-01-02T15:04:05"
+
 // newDatasource returns datasource.ServeOpts.
 func newDatasource() datasource.ServeOpts {
 	// creates a instance manager for your plugin. The function passed
@@ -103,30 +105,45 @@ func httpGet(url string) (result []byte, err error) {
 	return body, nil
 }
 
-func extractStringColumn(deployments Deployments, f func(deployment Deployment) string) []string {
+func inTimeRange(deployment Deployment, timeRange backend.TimeRange) bool {
+	if (timeRange.To.Equal(time.Time{}) && timeRange.From.Equal(time.Time{})) {
+		return true
+	}
+
+	completed, err := time.Parse(dateFormat, deployment.CompletedTime)
+	return err != nil && timeRange.From.Before(completed) && timeRange.To.After(completed)
+}
+
+func extractStringColumn(deployments Deployments, timeRange backend.TimeRange, f func(deployment Deployment) string) []string {
 	var column []string
 	for _, deployment := range deployments.Deployments {
-		column = append(column, f(deployment)) // note the = instead of :=
+		if inTimeRange(deployment, timeRange) {
+			column = append(column, f(deployment)) // note the = instead of :=
+		}
 	}
 	return column
 }
 
-func extractIntColumn(deployments Deployments, f func(deployment Deployment) uint8) []uint8 {
+func extractIntColumn(deployments Deployments, timeRange backend.TimeRange, f func(deployment Deployment) uint8) []uint8 {
 	var column []uint8
 	for _, deployment := range deployments.Deployments {
-		column = append(column, f(deployment)) // note the = instead of :=
+		if inTimeRange(deployment, timeRange) {
+			column = append(column, f(deployment)) // note the = instead of :=
+		}
 	}
 	return column
 }
 
-func extractTimeColumn(deployments Deployments, f func(deployment Deployment) string) []time.Time {
+func extractTimeColumn(deployments Deployments, timeRange backend.TimeRange, f func(deployment Deployment) string) []time.Time {
 	var column []time.Time
 	for _, deployment := range deployments.Deployments {
-		parsedTime, err := time.Parse("2006-01-02T15:04:05", f(deployment))
-		if err == nil {
-			column = append(column, parsedTime) // note the = instead of :=
-		} else {
-			column = append(column, time.Now())
+		if inTimeRange(deployment, timeRange) {
+			parsedTime, err := time.Parse(dateFormat, f(deployment))
+			if err == nil {
+				column = append(column, parsedTime) // note the = instead of :=
+			} else {
+				column = append(column, time.Now())
+			}
 		}
 	}
 	return column
@@ -148,87 +165,87 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 
 	// add the cloumns
 	frame.Fields = append(frame.Fields,
-		data.NewField("deploymentid", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.DeploymentId })),
+		data.NewField("deploymentid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.DeploymentId })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("deploymentname", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.DeploymentName })),
+		data.NewField("deploymentname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.DeploymentName })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("projectid", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.ProjectId })),
+		data.NewField("projectid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ProjectId })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("projectname", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.ProjectName })),
+		data.NewField("projectname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ProjectName })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("projectslug", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.ProjectSlug })),
+		data.NewField("projectslug", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ProjectSlug })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("tenantid", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.TenantId })),
+		data.NewField("tenantid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.TenantId })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("tenantname", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.TenantName })),
+		data.NewField("tenantname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.TenantName })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("channelid", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.ChannelId })),
+		data.NewField("channelid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ChannelId })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("channelname", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.ChannelName })),
+		data.NewField("channelname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ChannelName })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("environmentid", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.EnvironmentId })),
+		data.NewField("environmentid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.EnvironmentId })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("environmentname", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.EnvironmentName })),
+		data.NewField("environmentname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.EnvironmentName })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("releaseid", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.ReleaseId })),
+		data.NewField("releaseid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ReleaseId })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("releaseversion", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.ReleaseVersion })),
+		data.NewField("releaseversion", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ReleaseVersion })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("taskid", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.TaskId })),
+		data.NewField("taskid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.TaskId })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("taskstate", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.TaskState })),
+		data.NewField("taskstate", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.TaskState })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("deployedby", nil, extractStringColumn(deployments, func(deployment Deployment) string { return deployment.DeployedBy })),
+		data.NewField("deployedby", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.DeployedBy })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("created", nil, extractTimeColumn(deployments, func(deployment Deployment) string { return deployment.Created })),
+		data.NewField("created", nil, extractTimeColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.Created })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("queuetime", nil, extractTimeColumn(deployments, func(deployment Deployment) string { return deployment.QueueTime })),
+		data.NewField("queuetime", nil, extractTimeColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.QueueTime })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("starttime", nil, extractTimeColumn(deployments, func(deployment Deployment) string { return deployment.StartTime })),
+		data.NewField("starttime", nil, extractTimeColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.StartTime })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("time", nil, extractTimeColumn(deployments, func(deployment Deployment) string { return deployment.CompletedTime })),
+		data.NewField("time", nil, extractTimeColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.CompletedTime })),
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("durationseconds", nil, extractIntColumn(deployments, func(deployment Deployment) uint8 { return deployment.DurationSeconds })),
+		data.NewField("durationseconds", nil, extractIntColumn(deployments, query.TimeRange, func(deployment Deployment) uint8 { return deployment.DurationSeconds })),
 	)
 
 	// add the frames to the response
