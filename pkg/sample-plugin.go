@@ -111,7 +111,9 @@ func inTimeRange(deployment Deployment, timeRange backend.TimeRange) bool {
 	}
 
 	completed, err := time.Parse(dateFormat, deployment.CompletedTime)
-	return err != nil && timeRange.From.Before(completed) && timeRange.To.After(completed)
+	fits := err == nil && timeRange.From.Before(completed) && timeRange.To.After(completed)
+
+	return fits
 }
 
 func extractStringColumn(deployments Deployments, timeRange backend.TimeRange, f func(deployment Deployment) string) []string {
@@ -245,7 +247,7 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	)
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("durationseconds", nil, extractIntColumn(deployments, query.TimeRange, func(deployment Deployment) uint8 { return deployment.DurationSeconds })),
+		data.NewField("values", nil, extractIntColumn(deployments, query.TimeRange, func(deployment Deployment) uint8 { return deployment.DurationSeconds })),
 	)
 
 	// add the frames to the response
