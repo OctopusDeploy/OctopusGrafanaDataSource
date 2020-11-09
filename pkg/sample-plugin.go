@@ -11,10 +11,36 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 )
 
 const dateFormat = "2006-01-02T15:04:05"
+const maxFrames = 50
+
+func Min(x, y int64) int64 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func MinInt(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func Exists(arr []time.Time, item time.Time, endCheck int) bool {
+	for i := 0; i < MinInt(endCheck, len(arr)); i++ {
+		if arr[i] == item {
+			return true
+		}
+	}
+
+	return false
+}
 
 // newDatasource returns datasource.ServeOpts.
 func newDatasource() datasource.ServeOpts {
@@ -42,16 +68,22 @@ type SampleDatasource struct {
 }
 
 type jsonData struct {
-	Server  string
-	SpaceId string
+	Server         string
+	SpaceId        string
+	BucketDuration string
 }
 
-func getConnectionDetails(context backend.PluginContext) (string, string, string) {
+func getConnectionDetails(context backend.PluginContext) (string, string, string, time.Duration) {
 	var jsonData jsonData
 	json.Unmarshal(context.DataSourceInstanceSettings.JSONData, &jsonData)
 	apiKey := context.DataSourceInstanceSettings.DecryptedSecureJSONData["apiKey"]
 
-	return jsonData.Server, jsonData.SpaceId, apiKey
+	duration, err := strconv.Atoi(jsonData.BucketDuration)
+	if err != nil {
+		duration = 60
+	}
+
+	return jsonData.Server, jsonData.SpaceId, apiKey, time.Duration(duration)
 }
 
 // QueryData handles multiple queries and returns multiple responses.
@@ -64,7 +96,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 	// create response struct
 	response := backend.NewQueryDataResponse()
 
-	server, space, apiKey := getConnectionDetails(req.PluginContext)
+	server, space, apiKey, bucketDuration := getConnectionDetails(req.PluginContext)
 
 	result, err := httpGet(server + "/api/" + space + "/reporting/deployments/xml?apikey=" + apiKey)
 	if err != nil {
@@ -73,9 +105,11 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 	parsedResults := Deployments{}
 	xml.Unmarshal(result, &parsedResults)
 
+	log.DefaultLogger.Info("Octopus result count " + strconv.Itoa(len(parsedResults.Deployments)))
+
 	// loop over queries and execute them individually.
 	for _, q := range req.Queries {
-		res := td.query(ctx, q, parsedResults)
+		res := td.query(ctx, q, parsedResults, bucketDuration)
 
 		// save the response in a hashmap
 		// based on with RefID as identifier
@@ -105,53 +139,7 @@ func httpGet(url string) (result []byte, err error) {
 	return body, nil
 }
 
-func inTimeRange(deployment Deployment, timeRange backend.TimeRange) bool {
-	if (timeRange.To.Equal(time.Time{}) && timeRange.From.Equal(time.Time{})) {
-		return true
-	}
-
-	completed, err := time.Parse(dateFormat, deployment.CompletedTime)
-	fits := err == nil && timeRange.From.Before(completed) && timeRange.To.After(completed)
-
-	return fits
-}
-
-func extractStringColumn(deployments Deployments, timeRange backend.TimeRange, f func(deployment Deployment) string) []string {
-	var column []string
-	for _, deployment := range deployments.Deployments {
-		if inTimeRange(deployment, timeRange) {
-			column = append(column, f(deployment)) // note the = instead of :=
-		}
-	}
-	return column
-}
-
-func extractIntColumn(deployments Deployments, timeRange backend.TimeRange, f func(deployment Deployment) uint8) []uint8 {
-	var column []uint8
-	for _, deployment := range deployments.Deployments {
-		if inTimeRange(deployment, timeRange) {
-			column = append(column, f(deployment)) // note the = instead of :=
-		}
-	}
-	return column
-}
-
-func extractTimeColumn(deployments Deployments, timeRange backend.TimeRange, f func(deployment Deployment) string) []time.Time {
-	var column []time.Time
-	for _, deployment := range deployments.Deployments {
-		if inTimeRange(deployment, timeRange) {
-			parsedTime, err := time.Parse(dateFormat, f(deployment))
-			if err == nil {
-				column = append(column, parsedTime) // note the = instead of :=
-			} else {
-				column = append(column, time.Now())
-			}
-		}
-	}
-	return column
-}
-
-func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments) backend.DataResponse {
+func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, bucketDuration time.Duration) backend.DataResponse {
 	// Unmarshal the json into our queryModel
 	var qm queryModel
 
@@ -165,90 +153,123 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	// create data frame response
 	frame := data.NewFrame("response")
 
-	// add the cloumns
-	frame.Fields = append(frame.Fields,
-		data.NewField("deploymentid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.DeploymentId })),
-	)
+	// The field data
+	times := []time.Time{}
+	deploymentId := []string{}
+	deploymentName := []string{}
+	projectId := []string{}
+	projectName := []string{}
+	projectSlug := []string{}
+	tenantId := []string{}
+	tenantName := []string{}
+	channelId := []string{}
+	channelName := []string{}
+	environmentId := []string{}
+	environmentName := []string{}
+	releaseId := []string{}
+	releaseVersion := []string{}
+	taskId := []string{}
+	taskState := []string{}
+	deployedBy := []string{}
+	created := []string{}
+	queueTime := []string{}
+	startTime := []string{}
+	duration := []uint8{}
+
+	// Work out how long the buckets should be
+	buckets := Min(maxFrames, int64(query.TimeRange.Duration()/bucketDuration))
+	bucketDuration = query.TimeRange.Duration() / time.Duration(buckets)
+
+	// get the bucket start time for each deployment
+	for i := 0; i < len(deployments.Deployments); i++ {
+		time, err := time.Parse(dateFormat, deployments.Deployments[i].CompletedTime)
+		if err == nil {
+			deployments.Deployments[i].CompetedTimeRounded = time.Round(bucketDuration)
+		}
+	}
+
+	for i := 0; i < int(buckets); i++ {
+		roundedTime := query.TimeRange.From.Add(bucketDuration * time.Duration(i)).Round(bucketDuration)
+		if query.TimeRange.From.Before(roundedTime) && query.TimeRange.To.After(roundedTime) {
+
+			found := false
+
+			for _, d := range deployments.Deployments {
+
+				if d.CompetedTimeRounded.Equal(roundedTime) {
+					found = true
+					times = append(times, roundedTime)
+					deploymentId = append(deploymentId, d.DeploymentId)
+					deploymentName = append(deploymentName, d.DeploymentName)
+					projectId = append(projectId, d.ProjectId)
+					projectName = append(projectName, d.ProjectName)
+					projectSlug = append(projectSlug, d.ProjectSlug)
+					tenantId = append(tenantId, d.TenantId)
+					tenantName = append(tenantName, d.TenantName)
+					channelId = append(channelId, d.ChannelId)
+					channelName = append(channelName, d.ChannelName)
+					environmentId = append(environmentId, d.EnvironmentId)
+					environmentName = append(environmentName, d.EnvironmentName)
+					releaseId = append(releaseId, d.ReleaseId)
+					releaseVersion = append(releaseVersion, d.ReleaseVersion)
+					taskId = append(taskId, d.TaskId)
+					taskState = append(taskState, d.TaskState)
+					deployedBy = append(deployedBy, d.DeployedBy)
+					created = append(created, d.Created)
+					queueTime = append(queueTime, d.QueueTime)
+					startTime = append(startTime, d.StartTime)
+					duration = append(duration, d.DurationSeconds)
+				}
+			}
+
+			if !found {
+				times = append(times, roundedTime)
+				deploymentId = append(deploymentId, "")
+				deploymentName = append(deploymentName, "")
+				projectId = append(projectId, "")
+				projectName = append(projectName, "")
+				projectSlug = append(projectSlug, "")
+				tenantId = append(tenantId, "")
+				tenantName = append(tenantName, "")
+				channelId = append(channelId, "")
+				channelName = append(channelName, "")
+				environmentId = append(environmentId, "")
+				environmentName = append(environmentName, "")
+				releaseId = append(releaseId, "")
+				releaseVersion = append(releaseVersion, "")
+				taskId = append(taskId, "")
+				taskState = append(taskState, "")
+				deployedBy = append(deployedBy, "")
+				created = append(created, "")
+				queueTime = append(queueTime, "")
+				startTime = append(startTime, "")
+				duration = append(duration, 0)
+			}
+		}
+	}
 
 	frame.Fields = append(frame.Fields,
-		data.NewField("deploymentname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.DeploymentName })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("projectid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ProjectId })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("projectname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ProjectName })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("projectslug", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ProjectSlug })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("tenantid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.TenantId })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("tenantname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.TenantName })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("channelid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ChannelId })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("channelname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ChannelName })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("environmentid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.EnvironmentId })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("environmentname", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.EnvironmentName })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("releaseid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ReleaseId })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("releaseversion", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.ReleaseVersion })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("taskid", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.TaskId })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("taskstate", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.TaskState })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("deployedby", nil, extractStringColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.DeployedBy })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("created", nil, extractTimeColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.Created })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("queuetime", nil, extractTimeColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.QueueTime })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("starttime", nil, extractTimeColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.StartTime })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("time", nil, extractTimeColumn(deployments, query.TimeRange, func(deployment Deployment) string { return deployment.CompletedTime })),
-	)
-
-	frame.Fields = append(frame.Fields,
-		data.NewField("values", nil, extractIntColumn(deployments, query.TimeRange, func(deployment Deployment) uint8 { return deployment.DurationSeconds })),
-	)
+		data.NewField("time", nil, times),
+		/*data.NewField("deploymentid", nil, deploymentId),
+		  data.NewField("deploymentname", nil, deploymentName),
+		  data.NewField("projectid", nil, projectId),
+		  data.NewField("projectname", nil, projectName),
+		  data.NewField("projectslug", nil, projectSlug),
+		  data.NewField("tenantid", nil, tenantId),
+		  data.NewField("tenantname", nil, tenantName),
+		  data.NewField("channelid", nil, channelId),
+		  data.NewField("channelname", nil, channelName),
+		  data.NewField("environmentid", nil, environmentId),
+		  data.NewField("environmentname", nil, environmentName),
+		  data.NewField("releaseid", nil, releaseId),
+		  data.NewField("releaseversion", nil, releaseVersion),
+		  data.NewField("taskid", nil, taskId),
+		  data.NewField("taskstate", nil, taskState),
+		  data.NewField("deployedby", nil, deployedBy),
+		  data.NewField("created", nil, created),
+		  data.NewField("queuetime", nil, queueTime),
+		  data.NewField("starttime", nil, startTime),*/
+		data.NewField("duration", nil, duration))
 
 	// add the frames to the response
 	response.Frames = append(response.Frames, frame)
@@ -263,7 +284,7 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 func (td *SampleDatasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
 	log.DefaultLogger.Info("CheckHealth")
 
-	path, space, apiKey := getConnectionDetails(req.PluginContext)
+	path, space, apiKey, _ := getConnectionDetails(req.PluginContext)
 
 	_, err := httpGet(path + "/api/" + space + "/reporting/deployments/xml?apikey=" + apiKey)
 

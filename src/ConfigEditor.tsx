@@ -54,6 +54,15 @@ export class ConfigEditor extends PureComponent<Props, State> {
     });
   };
 
+  onBucketChanged = (event: ChangeEvent<HTMLInputElement>) => {
+    const { onOptionsChange, options } = this.props;
+    const jsonData = {
+      ...options.jsonData,
+      bucketDuration: event.target.value,
+    };
+    onOptionsChange({ ...options, jsonData });
+  };
+
   render() {
     const { options } = this.props;
     const { jsonData, secureJsonFields } = options;
@@ -68,7 +77,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
             inputWidth={20}
             onChange={this.onServerChange}
             value={jsonData.server || ''}
-            placeholder="json field returned to frontend"
+            placeholder="http://octopusserver"
           />
         </div>
 
@@ -79,7 +88,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
             inputWidth={20}
             onChange={this.onSpaceChange}
             value={jsonData.spaceId || ''}
-            placeholder="json field returned to frontend"
+            placeholder="Space-##"
           />
         </div>
 
@@ -89,13 +98,24 @@ export class ConfigEditor extends PureComponent<Props, State> {
               isConfigured={(secureJsonFields && secureJsonFields.apiKey) as boolean}
               value={secureJsonData.apiKey || ''}
               label="API Key"
-              placeholder="secure json field (backend only)"
+              placeholder="API-xxxxxxxxxx"
               labelWidth={6}
               inputWidth={20}
               onReset={this.onResetAPIKey}
               onChange={this.onAPIKeyChange}
             />
           </div>
+        </div>
+
+        <div className="gf-form">
+          <FormField
+            label="Bucket (sec)"
+            labelWidth={6}
+            inputWidth={20}
+            onChange={this.onBucketChanged}
+            value={jsonData.bucketDuration || ''}
+            placeholder="60"
+          />
         </div>
       </div>
     );
