@@ -32,6 +32,6 @@ type Deployment struct {
 	StartTime           string   `xml:"StartTime"`
 	CompletedTime       string   `xml:"CompletedTime"`
 	CompetedTimeRounded time.Time
-	DurationSeconds     uint8  `xml:"DurationSeconds"`
+	DurationSeconds     uint32 `xml:"DurationSeconds"`
 	DeployedBy          string `xml:"DeployedBy"`
 }

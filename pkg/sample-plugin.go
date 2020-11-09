@@ -71,6 +71,7 @@ type jsonData struct {
 	Server         string
 	SpaceId        string
 	BucketDuration string
+	Format         string
 }
 
 func getConnectionDetails(context backend.PluginContext) (string, string, string, time.Duration) {
@@ -139,7 +140,133 @@ func httpGet(url string) (result []byte, err error) {
 	return body, nil
 }
 
+func parseTime(timeString string) time.Time {
+	parsedTime, err := time.Parse(dateFormat, timeString)
+	if err != nil {
+		return parsedTime
+	}
+	return time.Time{}
+}
+
+func arrayAverage(items []uint32) float32 {
+	if len(items) == 0 {
+		return 0
+	}
+
+	total := uint32(0)
+	for i := 0; i < len(items); i++ {
+		total += items[i]
+	}
+	return float32(total) / float32(len(items))
+}
+
 func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, bucketDuration time.Duration) backend.DataResponse {
+	// Unmarshal the json into our queryModel
+	var qm queryModel
+
+	response := backend.DataResponse{}
+
+	response.Error = json.Unmarshal(query.JSON, &qm)
+	if response.Error != nil {
+		return response
+	}
+
+	// create data frame response
+	frame := data.NewFrame("response")
+
+	// The field data
+	times := []time.Time{}
+	avgDuration := []float32{}
+	totalDuration := []uint32{}
+	success := []uint32{}
+	failure := []uint32{}
+
+	// Work out how long the buckets should be
+	buckets := Min(maxFrames, int64(query.TimeRange.Duration()/bucketDuration))
+	bucketDuration = query.TimeRange.Duration() / time.Duration(buckets)
+
+	// get the bucket start time for each deployment
+	for i := 0; i < len(deployments.Deployments); i++ {
+		time, err := time.Parse(dateFormat, deployments.Deployments[i].CompletedTime)
+		if err == nil {
+			deployments.Deployments[i].CompetedTimeRounded = time.Round(bucketDuration)
+		}
+	}
+
+	for i := 0; i < int(buckets); i++ {
+		roundedTime := query.TimeRange.From.Add(bucketDuration * time.Duration(i)).Round(bucketDuration)
+		if query.TimeRange.From.Before(roundedTime) && query.TimeRange.To.After(roundedTime) {
+
+			count := 0
+
+			for _, d := range deployments.Deployments {
+				if d.CompetedTimeRounded.Equal(roundedTime) {
+
+					count++
+
+					if times[len(times)-1].Equal(roundedTime) {
+						success[len(success)-1] += func() uint32 {
+							if d.TaskState == "Success" {
+								return 1
+							} else {
+								return 0
+							}
+						}()
+						failure[len(failure)-1] += func() uint32 {
+							if d.TaskState != "Success" {
+								return 1
+							} else {
+								return 0
+							}
+						}()
+						totalDuration[len(totalDuration)-1] += d.DurationSeconds
+						avgDuration[len(avgDuration)-1] = arrayAverage(totalDuration)
+					} else {
+						times = append(times, roundedTime)
+						success = append(success, func() uint32 {
+							if d.TaskState == "Success" {
+								return 1
+							} else {
+								return 0
+							}
+						}())
+						failure = append(failure, func() uint32 {
+							if d.TaskState != "Success" {
+								return 1
+							} else {
+								return 0
+							}
+						}())
+						avgDuration = append(avgDuration, float32(d.DurationSeconds))
+						totalDuration = append(totalDuration, d.DurationSeconds)
+					}
+				}
+			}
+
+			if count == 0 {
+				times = append(times, roundedTime)
+				success = append(success, 0)
+				failure = append(failure, 0)
+				avgDuration = append(avgDuration, 0)
+				totalDuration = append(totalDuration, 0)
+			}
+		}
+	}
+
+	frame.Fields = append(frame.Fields,
+		data.NewField("time", nil, times),
+		data.NewField("success", nil, success),
+		data.NewField("failure", nil, failure),
+		data.NewField("totalDuration", nil, totalDuration),
+		data.NewField("avgDuration", nil, avgDuration))
+
+	// add the frames to the response
+	response.Frames = append(response.Frames, frame)
+
+	return response
+}
+
+func (td *SampleDatasource) queryTable(ctx context.Context, query backend.DataQuery, deployments Deployments, bucketDuration time.Duration) backend.DataResponse {
 	// Unmarshal the json into our queryModel
 	var qm queryModel
 
@@ -171,104 +298,56 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	taskId := []string{}
 	taskState := []string{}
 	deployedBy := []string{}
-	created := []string{}
-	queueTime := []string{}
-	startTime := []string{}
-	duration := []uint8{}
+	created := []time.Time{}
+	queueTime := []time.Time{}
+	startTime := []time.Time{}
+	duration := []uint32{}
 
-	// Work out how long the buckets should be
-	buckets := Min(maxFrames, int64(query.TimeRange.Duration()/bucketDuration))
-	bucketDuration = query.TimeRange.Duration() / time.Duration(buckets)
-
-	// get the bucket start time for each deployment
-	for i := 0; i < len(deployments.Deployments); i++ {
-		time, err := time.Parse(dateFormat, deployments.Deployments[i].CompletedTime)
-		if err == nil {
-			deployments.Deployments[i].CompetedTimeRounded = time.Round(bucketDuration)
-		}
-	}
-
-	for i := 0; i < int(buckets); i++ {
-		roundedTime := query.TimeRange.From.Add(bucketDuration * time.Duration(i)).Round(bucketDuration)
-		if query.TimeRange.From.Before(roundedTime) && query.TimeRange.To.After(roundedTime) {
-
-			found := false
-
-			for _, d := range deployments.Deployments {
-
-				if d.CompetedTimeRounded.Equal(roundedTime) {
-					found = true
-					times = append(times, roundedTime)
-					deploymentId = append(deploymentId, d.DeploymentId)
-					deploymentName = append(deploymentName, d.DeploymentName)
-					projectId = append(projectId, d.ProjectId)
-					projectName = append(projectName, d.ProjectName)
-					projectSlug = append(projectSlug, d.ProjectSlug)
-					tenantId = append(tenantId, d.TenantId)
-					tenantName = append(tenantName, d.TenantName)
-					channelId = append(channelId, d.ChannelId)
-					channelName = append(channelName, d.ChannelName)
-					environmentId = append(environmentId, d.EnvironmentId)
-					environmentName = append(environmentName, d.EnvironmentName)
-					releaseId = append(releaseId, d.ReleaseId)
-					releaseVersion = append(releaseVersion, d.ReleaseVersion)
-					taskId = append(taskId, d.TaskId)
-					taskState = append(taskState, d.TaskState)
-					deployedBy = append(deployedBy, d.DeployedBy)
-					created = append(created, d.Created)
-					queueTime = append(queueTime, d.QueueTime)
-					startTime = append(startTime, d.StartTime)
-					duration = append(duration, d.DurationSeconds)
-				}
-			}
-
-			if !found {
-				times = append(times, roundedTime)
-				deploymentId = append(deploymentId, "")
-				deploymentName = append(deploymentName, "")
-				projectId = append(projectId, "")
-				projectName = append(projectName, "")
-				projectSlug = append(projectSlug, "")
-				tenantId = append(tenantId, "")
-				tenantName = append(tenantName, "")
-				channelId = append(channelId, "")
-				channelName = append(channelName, "")
-				environmentId = append(environmentId, "")
-				environmentName = append(environmentName, "")
-				releaseId = append(releaseId, "")
-				releaseVersion = append(releaseVersion, "")
-				taskId = append(taskId, "")
-				taskState = append(taskState, "")
-				deployedBy = append(deployedBy, "")
-				created = append(created, "")
-				queueTime = append(queueTime, "")
-				startTime = append(startTime, "")
-				duration = append(duration, 0)
-			}
-		}
+	for _, d := range deployments.Deployments {
+		times = append(times, parseTime(d.CompletedTime))
+		deploymentId = append(deploymentId, d.DeploymentId)
+		deploymentName = append(deploymentName, d.DeploymentName)
+		projectId = append(projectId, d.ProjectId)
+		projectName = append(projectName, d.ProjectName)
+		projectSlug = append(projectSlug, d.ProjectSlug)
+		tenantId = append(tenantId, d.TenantId)
+		tenantName = append(tenantName, d.TenantName)
+		channelId = append(channelId, d.ChannelId)
+		channelName = append(channelName, d.ChannelName)
+		environmentId = append(environmentId, d.EnvironmentId)
+		environmentName = append(environmentName, d.EnvironmentName)
+		releaseId = append(releaseId, d.ReleaseId)
+		releaseVersion = append(releaseVersion, d.ReleaseVersion)
+		taskId = append(taskId, d.TaskId)
+		taskState = append(taskState, d.TaskState)
+		deployedBy = append(deployedBy, d.DeployedBy)
+		created = append(created, parseTime(d.Created))
+		queueTime = append(queueTime, parseTime(d.QueueTime))
+		startTime = append(startTime, parseTime(d.StartTime))
+		duration = append(duration, d.DurationSeconds)
 	}
 
 	frame.Fields = append(frame.Fields,
 		data.NewField("time", nil, times),
-		/*data.NewField("deploymentid", nil, deploymentId),
-		  data.NewField("deploymentname", nil, deploymentName),
-		  data.NewField("projectid", nil, projectId),
-		  data.NewField("projectname", nil, projectName),
-		  data.NewField("projectslug", nil, projectSlug),
-		  data.NewField("tenantid", nil, tenantId),
-		  data.NewField("tenantname", nil, tenantName),
-		  data.NewField("channelid", nil, channelId),
-		  data.NewField("channelname", nil, channelName),
-		  data.NewField("environmentid", nil, environmentId),
-		  data.NewField("environmentname", nil, environmentName),
-		  data.NewField("releaseid", nil, releaseId),
-		  data.NewField("releaseversion", nil, releaseVersion),
-		  data.NewField("taskid", nil, taskId),
-		  data.NewField("taskstate", nil, taskState),
-		  data.NewField("deployedby", nil, deployedBy),
-		  data.NewField("created", nil, created),
-		  data.NewField("queuetime", nil, queueTime),
-		  data.NewField("starttime", nil, startTime),*/
+		data.NewField("deploymentid", nil, deploymentId),
+		data.NewField("deploymentname", nil, deploymentName),
+		data.NewField("projectid", nil, projectId),
+		data.NewField("projectname", nil, projectName),
+		data.NewField("projectslug", nil, projectSlug),
+		data.NewField("tenantid", nil, tenantId),
+		data.NewField("tenantname", nil, tenantName),
+		data.NewField("channelid", nil, channelId),
+		data.NewField("channelname", nil, channelName),
+		data.NewField("environmentid", nil, environmentId),
+		data.NewField("environmentname", nil, environmentName),
+		data.NewField("releaseid", nil, releaseId),
+		data.NewField("releaseversion", nil, releaseVersion),
+		data.NewField("taskid", nil, taskId),
+		data.NewField("taskstate", nil, taskState),
+		data.NewField("deployedby", nil, deployedBy),
+		data.NewField("created", nil, created),
+		data.NewField("queuetime", nil, queueTime),
+		data.NewField("starttime", nil, startTime),
 		data.NewField("duration", nil, duration))
 
 	// add the frames to the response
