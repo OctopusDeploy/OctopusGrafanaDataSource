@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+type IdResource struct {
+	Name string `json:Name`
+	Id   string `json:Id`
+}
+
 type Deployments struct {
 	XMLName     xml.Name     `xml:"Deployments"`
 	Deployments []Deployment `xml:"Deployment"`

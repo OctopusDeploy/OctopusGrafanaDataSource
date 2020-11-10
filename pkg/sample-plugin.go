@@ -11,11 +11,16 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const dateFormat = "2006-01-02T15:04:05"
+const octopusDateFormat = "2006-01-02 15:04:05"
 const maxFrames = 50
 
 func Min(x, y int64) int64 {
@@ -30,16 +35,6 @@ func MinInt(x, y int) int {
 		return x
 	}
 	return y
-}
-
-func Exists(arr []time.Time, item time.Time, endCheck int) bool {
-	for i := 0; i < MinInt(endCheck, len(arr)); i++ {
-		if arr[i] == item {
-			return true
-		}
-	}
-
-	return false
 }
 
 // newDatasource returns datasource.ServeOpts.
@@ -87,19 +82,88 @@ func getConnectionDetails(context backend.PluginContext) (string, string, string
 	return jsonData.Server, jsonData.SpaceId, apiKey, time.Duration(duration)
 }
 
+func getDateRange(req *backend.QueryDataRequest, path string, space string, apiKey string) (time.Time, time.Time, string, string) {
+	earliestDate := time.Time{}
+	latestDate := time.Time{}
+	projects := []string{}
+	environments := []string{}
+
+	for i := 0; i < len(req.Queries); i++ {
+		if earliestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.From.Before(earliestDate) {
+			earliestDate = req.Queries[i].TimeRange.From
+		}
+
+		if latestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.To.After(latestDate) {
+			latestDate = req.Queries[i].TimeRange.To
+		}
+
+		var qm queryModel
+		response := backend.DataResponse{}
+
+		response.Error = json.Unmarshal(req.Queries[i].JSON, &qm)
+		if response.Error == nil {
+			projects = append(projects, qm.ProjectName)
+			environments = append(environments, qm.EnvironmentName)
+		}
+	}
+
+	sort.Strings(projects)
+	project := ""
+	if projects[0] == projects[len(projects)-1] {
+		projectName, err := resourceNameToId("projects", path, space, apiKey, projects[0])
+		if err == nil {
+			project = projectName
+		}
+	}
+
+	sort.Strings(environments)
+	environment := ""
+	if environments[0] == environments[len(environments)-1] {
+		environmentName, err := resourceNameToId("environments", path, space, apiKey, environments[0])
+		if err == nil {
+			environment = environmentName
+		}
+	}
+
+	return earliestDate, latestDate, project, environment
+}
+
 // QueryData handles multiple queries and returns multiple responses.
 // req contains the queries []DataQuery (where each query contains RefID as a unique identifer).
 // The QueryDataResponse contains a map of RefID to the response for each query, and each response
 // contains Frames ([]*Frame).
 func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
-	log.DefaultLogger.Info("QueryData", "request", req)
-
 	// create response struct
 	response := backend.NewQueryDataResponse()
 
 	server, space, apiKey, bucketDuration := getConnectionDetails(req.PluginContext)
 
-	result, err := httpGet(server + "/api/" + space + "/reporting/deployments/xml?apikey=" + apiKey)
+	earliestDate, latestDate, project, environment := getDateRange(req, server, space, apiKey)
+
+	for i := 0; i < len(req.Queries); i++ {
+		if earliestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.From.Before(earliestDate) {
+			earliestDate = req.Queries[i].TimeRange.From
+		}
+
+		if latestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.To.After(latestDate) {
+			latestDate = req.Queries[i].TimeRange.To
+		}
+	}
+
+	query := server + "/api/" + space + "/reporting/deployments/xml?apikey=" + apiKey +
+		"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+		"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+
+	if project != "" {
+		query += "&projectId=" + project
+	}
+
+	if project != "" {
+		query += "&environmentId=" + environment
+	}
+
+	result, err := httpGet(query)
+
 	if err != nil {
 		return response, nil
 	}
@@ -121,7 +185,44 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 }
 
 type queryModel struct {
-	Format string `json:"format"`
+	ProjectName     string `json:"projectName"`
+	TenantName      string `json:"tenantName"`
+	EnvironmentName string `json:"environmentName"`
+	ChannelName     string `json:"channelName"`
+	ReleaseVersion  string `json:"releaseVersion"`
+}
+
+func slugify(value string) string {
+	value = strings.ToLower(value)
+	value = regexp.MustCompile(`\s`).ReplaceAllString(value, "-")
+	value = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(value, "-")
+	value = regexp.MustCompile(`-+`).ReplaceAllString(value, "-")
+	value = strings.Trim(value, "-/")
+	return value
+}
+
+func resourceNameToId(resourceType string, path string, space string, apiKey string, resourceName string) (string, error) {
+	url := path + "/api/" + space + "/" + resourceType + "/" + slugify(resourceName) + "?apikey=" + apiKey
+	resp, err := http.Get(url)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return "", err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	parsedResults := IdResource{}
+	err = json.Unmarshal(body, &parsedResults)
+
+	if err == nil {
+		return parsedResults.Id, nil
+	}
+
+	return "", err
 }
 
 func httpGet(url string) (result []byte, err error) {
@@ -158,6 +259,34 @@ func arrayAverage(items []uint32) float32 {
 		total += items[i]
 	}
 	return float32(total) / float32(len(items))
+}
+
+func empty(s string) bool {
+	return len(strings.TrimSpace(s)) == 0
+}
+
+func includeDeployment(qm *queryModel, deployment *Deployment) bool {
+	if !empty(qm.ReleaseVersion) && deployment.ReleaseVersion != qm.ReleaseVersion {
+		return false
+	}
+
+	if !empty(qm.ProjectName) && deployment.ProjectName != qm.ProjectName {
+		return false
+	}
+
+	if !empty(qm.ChannelName) && deployment.ChannelName != qm.ChannelName {
+		return false
+	}
+
+	if !empty(qm.TenantName) && deployment.TenantName != qm.TenantName {
+		return false
+	}
+
+	if !empty(qm.EnvironmentName) && deployment.EnvironmentName != qm.EnvironmentName {
+		return false
+	}
+
+	return true
 }
 
 func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, bucketDuration time.Duration) backend.DataResponse {
@@ -199,12 +328,13 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 
 			count := 0
 
+			// This could be optimised with some sorting and culling
 			for _, d := range deployments.Deployments {
-				if d.CompetedTimeRounded.Equal(roundedTime) {
+				if includeDeployment(&qm, &d) && d.CompetedTimeRounded.Equal(roundedTime) {
 
 					count++
 
-					if times[len(times)-1].Equal(roundedTime) {
+					if len(times) != 0 && times[len(times)-1].Equal(roundedTime) {
 						success[len(success)-1] += func() uint32 {
 							if d.TaskState == "Success" {
 								return 1
@@ -304,27 +434,29 @@ func (td *SampleDatasource) queryTable(ctx context.Context, query backend.DataQu
 	duration := []uint32{}
 
 	for _, d := range deployments.Deployments {
-		times = append(times, parseTime(d.CompletedTime))
-		deploymentId = append(deploymentId, d.DeploymentId)
-		deploymentName = append(deploymentName, d.DeploymentName)
-		projectId = append(projectId, d.ProjectId)
-		projectName = append(projectName, d.ProjectName)
-		projectSlug = append(projectSlug, d.ProjectSlug)
-		tenantId = append(tenantId, d.TenantId)
-		tenantName = append(tenantName, d.TenantName)
-		channelId = append(channelId, d.ChannelId)
-		channelName = append(channelName, d.ChannelName)
-		environmentId = append(environmentId, d.EnvironmentId)
-		environmentName = append(environmentName, d.EnvironmentName)
-		releaseId = append(releaseId, d.ReleaseId)
-		releaseVersion = append(releaseVersion, d.ReleaseVersion)
-		taskId = append(taskId, d.TaskId)
-		taskState = append(taskState, d.TaskState)
-		deployedBy = append(deployedBy, d.DeployedBy)
-		created = append(created, parseTime(d.Created))
-		queueTime = append(queueTime, parseTime(d.QueueTime))
-		startTime = append(startTime, parseTime(d.StartTime))
-		duration = append(duration, d.DurationSeconds)
+		if includeDeployment(&qm, &d) {
+			times = append(times, parseTime(d.CompletedTime))
+			deploymentId = append(deploymentId, d.DeploymentId)
+			deploymentName = append(deploymentName, d.DeploymentName)
+			projectId = append(projectId, d.ProjectId)
+			projectName = append(projectName, d.ProjectName)
+			projectSlug = append(projectSlug, d.ProjectSlug)
+			tenantId = append(tenantId, d.TenantId)
+			tenantName = append(tenantName, d.TenantName)
+			channelId = append(channelId, d.ChannelId)
+			channelName = append(channelName, d.ChannelName)
+			environmentId = append(environmentId, d.EnvironmentId)
+			environmentName = append(environmentName, d.EnvironmentName)
+			releaseId = append(releaseId, d.ReleaseId)
+			releaseVersion = append(releaseVersion, d.ReleaseVersion)
+			taskId = append(taskId, d.TaskId)
+			taskState = append(taskState, d.TaskState)
+			deployedBy = append(deployedBy, d.DeployedBy)
+			created = append(created, parseTime(d.Created))
+			queueTime = append(queueTime, parseTime(d.QueueTime))
+			startTime = append(startTime, parseTime(d.StartTime))
+			duration = append(duration, d.DurationSeconds)
+		}
 	}
 
 	frame.Fields = append(frame.Fields,
@@ -391,6 +523,6 @@ func newDataSourceInstance(setting backend.DataSourceInstanceSettings) (instance
 }
 
 func (s *instanceSettings) Dispose() {
-	// Called before creatinga a new instance to allow plugin authors
+	// Called before creating a new instance to allow plugin authors
 	// to cleanup.
 }

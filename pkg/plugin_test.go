@@ -19,7 +19,7 @@ func TestConnection(t *testing.T) {
 			},
 		},
 		Queries: []backend.DataQuery{backend.DataQuery{
-			JSON: []byte("{}"),
+			JSON: []byte("{\"projectName\": \"Octopus Server\", \"environmentName\": \"Production\"}"),
 			TimeRange: struct {
 				From time.Time
 				To   time.Time
