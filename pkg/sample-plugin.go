@@ -158,7 +158,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		query += "&projectId=" + project
 	}
 
-	if project != "" {
+	if environment != "" {
 		query += "&environmentId=" + environment
 	}
 
@@ -309,6 +309,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	totalDuration := []uint32{}
 	success := []uint32{}
 	failure := []uint32{}
+	cancelled := []uint32{}
+	timedOut := []uint32{}
 
 	// Work out how long the buckets should be
 	buckets := Min(maxFrames, int64(query.TimeRange.Duration()/bucketDuration))
@@ -343,7 +345,21 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 							}
 						}()
 						failure[len(failure)-1] += func() uint32 {
-							if d.TaskState != "Success" {
+							if d.TaskState == "Failure" {
+								return 1
+							} else {
+								return 0
+							}
+						}()
+						cancelled[len(cancelled)-1] += func() uint32 {
+							if d.TaskState == "Cancelled" {
+								return 1
+							} else {
+								return 0
+							}
+						}()
+						timedOut[len(timedOut)-1] += func() uint32 {
+							if d.TaskState == "TimedOut" {
 								return 1
 							} else {
 								return 0
@@ -361,7 +377,21 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 							}
 						}())
 						failure = append(failure, func() uint32 {
-							if d.TaskState != "Success" {
+							if d.TaskState == "Failed" {
+								return 1
+							} else {
+								return 0
+							}
+						}())
+						cancelled = append(cancelled, func() uint32 {
+							if d.TaskState == "Cancelled" {
+								return 1
+							} else {
+								return 0
+							}
+						}())
+						timedOut = append(timedOut, func() uint32 {
+							if d.TaskState == "TimedOut" {
 								return 1
 							} else {
 								return 0
@@ -377,6 +407,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 				times = append(times, roundedTime)
 				success = append(success, 0)
 				failure = append(failure, 0)
+				cancelled = append(cancelled, 0)
+				timedOut = append(timedOut, 0)
 				avgDuration = append(avgDuration, 0)
 				totalDuration = append(totalDuration, 0)
 			}
@@ -387,6 +419,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 		data.NewField("time", nil, times),
 		data.NewField("success", nil, success),
 		data.NewField("failure", nil, failure),
+		data.NewField("cancelled", nil, cancelled),
+		data.NewField("timedOut", nil, timedOut),
 		data.NewField("totalDuration", nil, totalDuration),
 		data.NewField("avgDuration", nil, avgDuration))
 
