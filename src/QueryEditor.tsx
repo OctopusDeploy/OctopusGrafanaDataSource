@@ -91,11 +91,14 @@ export class QueryEditor extends PureComponent<Props> {
 
     return (
       <div className="gf-form" style={{flexDirection: "column"}}>
-        <Select
-          value={formatOptions.find(f => f.value == format) || formatOptions.find(f => f.value == "timeseries")}
-          options={formatOptions}
-          onChange={this.onFormatTextChange}
-        />
+        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+          <InlineFormLabel>Result Format</InlineFormLabel>
+          <Select
+            value={formatOptions.find(f => f.value == format) || formatOptions.find(f => f.value == "timeseries")}
+            options={formatOptions}
+            onChange={this.onFormatTextChange}
+          />
+        </div>
         <FormField
           labelWidth={8}
           value={projectName || ''}
