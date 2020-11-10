@@ -6,6 +6,7 @@ export interface MyQuery extends DataQuery {
   environmentName?: string;
   channelName?: string;
   releaseVersion?: string;
+  format?: string;
 }
 
 export const defaultQuery: Partial<MyQuery> = {

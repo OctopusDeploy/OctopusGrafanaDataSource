@@ -2,15 +2,20 @@ import defaults from 'lodash/defaults';
 
 import React, { ChangeEvent, PureComponent } from 'react';
 import { LegacyForms } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
+import {QueryEditorProps, SelectableValue} from '@grafana/data';
 import { DataSource } from './DataSource';
 import { defaultQuery, MyDataSourceOptions, MyQuery } from './types';
 
-const { FormField } = LegacyForms;
+const { FormField, Select } = LegacyForms;
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
 export class QueryEditor extends PureComponent<Props> {
+  onFormatTextChange = (value: SelectableValue<string>) => {
+    const { onChange, query } = this.props;
+    onChange({ ...query, format: value.value });
+  };
+
   onProjectNameTextChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onChange, query } = this.props;
     onChange({ ...query, projectName: event.target.value });
@@ -45,10 +50,16 @@ export class QueryEditor extends PureComponent<Props> {
 
   render() {
     const query = defaults(this.props.query, defaultQuery);
-    const { projectName, environmentName, channelName, tenantName, releaseVersion } = query;
+    const { projectName, environmentName, channelName, tenantName, releaseVersion, format } = query;
+    const formatOptions = [{value: "timeseries", label: "time series"}, {value: "table", label: "table"}];
 
     return (
       <div className="gf-form" style={{flexDirection: "column"}}>
+        <Select
+          value={formatOptions.find(f => f.value == format) || formatOptions.find(f => f.value == "timeseries")}
+          options={formatOptions}
+          onChange={this.onFormatTextChange}
+        />
         <FormField
           labelWidth={8}
           value={projectName || ''}

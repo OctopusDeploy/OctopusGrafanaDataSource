@@ -82,7 +82,7 @@ func getConnectionDetails(context backend.PluginContext) (string, string, string
 	return jsonData.Server, jsonData.SpaceId, apiKey, time.Duration(duration)
 }
 
-func getDateRange(req *backend.QueryDataRequest, path string, space string, apiKey string) (time.Time, time.Time, string, string) {
+func getQueryDetails(req *backend.QueryDataRequest, path string, space string, apiKey string) (time.Time, time.Time, string, string) {
 	earliestDate := time.Time{}
 	latestDate := time.Time{}
 	projects := []string{}
@@ -138,7 +138,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 
 	server, space, apiKey, bucketDuration := getConnectionDetails(req.PluginContext)
 
-	earliestDate, latestDate, project, environment := getDateRange(req, server, space, apiKey)
+	earliestDate, latestDate, project, environment := getQueryDetails(req, server, space, apiKey)
 
 	for i := 0; i < len(req.Queries); i++ {
 		if earliestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.From.Before(earliestDate) {
@@ -174,11 +174,17 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 
 	// loop over queries and execute them individually.
 	for _, q := range req.Queries {
-		res := td.query(ctx, q, parsedResults, bucketDuration)
 
-		// save the response in a hashmap
-		// based on with RefID as identifier
-		response.Responses[q.RefID] = res
+		var qm queryModel
+
+		dataResponse := backend.DataResponse{}
+
+		dataResponse.Error = json.Unmarshal(q.JSON, &qm)
+		if dataResponse.Error == nil && qm.Format == "table" {
+			response.Responses[q.RefID] = td.queryTable(ctx, q, parsedResults, bucketDuration)
+		} else {
+			response.Responses[q.RefID] = td.query(ctx, q, parsedResults, bucketDuration)
+		}
 	}
 
 	return response, nil
@@ -190,6 +196,7 @@ type queryModel struct {
 	EnvironmentName string `json:"environmentName"`
 	ChannelName     string `json:"channelName"`
 	ReleaseVersion  string `json:"releaseVersion"`
+	Format          string `json:"format"`
 }
 
 func slugify(value string) string {
