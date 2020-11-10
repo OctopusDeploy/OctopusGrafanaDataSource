@@ -7,10 +7,21 @@ export interface MyQuery extends DataQuery {
   channelName?: string;
   releaseVersion?: string;
   format?: string;
+  successField: boolean;
+  failureField: boolean;
+  timedOutField: boolean;
+  cancelledField: boolean;
+  totalDurationField: boolean;
+  averageDurationField: boolean;
 }
 
 export const defaultQuery: Partial<MyQuery> = {
-
+  successField: true,
+  failureField: true,
+  timedOutField: true,
+  cancelledField: true,
+  totalDurationField: true,
+  averageDurationField: true
 };
 
 /**

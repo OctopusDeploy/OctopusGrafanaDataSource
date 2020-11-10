@@ -191,12 +191,18 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 }
 
 type queryModel struct {
-	ProjectName     string `json:"projectName"`
-	TenantName      string `json:"tenantName"`
-	EnvironmentName string `json:"environmentName"`
-	ChannelName     string `json:"channelName"`
-	ReleaseVersion  string `json:"releaseVersion"`
-	Format          string `json:"format"`
+	ProjectName          string `json:"projectName"`
+	TenantName           string `json:"tenantName"`
+	EnvironmentName      string `json:"environmentName"`
+	ChannelName          string `json:"channelName"`
+	ReleaseVersion       string `json:"releaseVersion"`
+	Format               string `json:"format"`
+	SuccessField         bool   `json:"successField"`
+	FailureField         bool   `json:"failureField"`
+	CancelledField       bool   `json:"cancelledField"`
+	TimedOutField        bool   `json:"timedOutField"`
+	TotalDurationField   bool   `json:"totalDurationField"`
+	AverageDurationField bool   `json:"averageDurationField"`
 }
 
 func slugify(value string) string {
@@ -422,14 +428,31 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 		}
 	}
 
-	frame.Fields = append(frame.Fields,
-		data.NewField("time", nil, times),
-		data.NewField("success", nil, success),
-		data.NewField("failure", nil, failure),
-		data.NewField("cancelled", nil, cancelled),
-		data.NewField("timedOut", nil, timedOut),
-		data.NewField("totalDuration", nil, totalDuration),
-		data.NewField("avgDuration", nil, avgDuration))
+	frame.Fields = append(frame.Fields, data.NewField("time", nil, times))
+
+	if qm.SuccessField {
+		frame.Fields = append(frame.Fields, data.NewField("success", nil, success))
+	}
+
+	if qm.FailureField {
+		frame.Fields = append(frame.Fields, data.NewField("failure", nil, failure))
+	}
+
+	if qm.CancelledField {
+		frame.Fields = append(frame.Fields, data.NewField("cancelled", nil, cancelled))
+	}
+
+	if qm.TimedOutField {
+		frame.Fields = append(frame.Fields, data.NewField("timedOut", nil, timedOut))
+	}
+
+	if qm.TotalDurationField {
+		frame.Fields = append(frame.Fields, data.NewField("totalDuration", nil, totalDuration))
+	}
+
+	if qm.AverageDurationField {
+		frame.Fields = append(frame.Fields, data.NewField("avgDuration", nil, avgDuration))
+	}
 
 	// add the frames to the response
 	response.Frames = append(response.Frames, frame)
