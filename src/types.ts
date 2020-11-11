@@ -13,6 +13,8 @@ export interface MyQuery extends DataQuery {
   cancelledField: boolean;
   totalDurationField: boolean;
   averageDurationField: boolean;
+  totalTimeToRecoveryField: boolean;
+  averageTimeToRecoveryField: boolean;
 }
 
 export const defaultQuery: Partial<MyQuery> = {
@@ -21,7 +23,9 @@ export const defaultQuery: Partial<MyQuery> = {
   timedOutField: true,
   cancelledField: true,
   totalDurationField: true,
-  averageDurationField: true
+  averageDurationField: true,
+  totalTimeToRecoveryField: true,
+  averageTimeToRecoveryField: true
 };
 
 /**

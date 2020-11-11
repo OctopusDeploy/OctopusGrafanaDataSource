@@ -71,6 +71,16 @@ export class QueryEditor extends PureComponent<Props> {
     onChange({...query, averageDurationField: event.target.checked});
   };
 
+  onTotalTimeToRecoveryFieldSwitchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const {onChange, query} = this.props;
+    onChange({...query, totalTimeToRecoveryField: event.target.checked});
+  };
+
+  onAverageTimeToRecoveryFieldSwitchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const {onChange, query} = this.props;
+    onChange({...query, averageTimeToRecoveryField: event.target.checked});
+  };
+
   render() {
     const query = defaults(this.props.query, defaultQuery);
     const {
@@ -85,14 +95,16 @@ export class QueryEditor extends PureComponent<Props> {
       cancelledField,
       timedOutField,
       totalDurationField,
-      averageDurationField
+      averageDurationField,
+      totalTimeToRecoveryField,
+      averageTimeToRecoveryField
     } = query;
     const formatOptions = [{value: "timeseries", label: "time series"}, {value: "table", label: "table"}];
 
     return (
       <div className="gf-form" style={{flexDirection: "column"}}>
         <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel>Result Format</InlineFormLabel>
+          <InlineFormLabel width={20}>Result Format</InlineFormLabel>
           <Select
             value={formatOptions.find(f => f.value == format) || formatOptions.find(f => f.value == "timeseries")}
             options={formatOptions}
@@ -130,7 +142,7 @@ export class QueryEditor extends PureComponent<Props> {
           label="Release Version"
         />
         <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel>Success field</InlineFormLabel>
+          <InlineFormLabel width={20}>Success field</InlineFormLabel>
           <Switch
             css="css"
             value={successField == null ? true : successField}
@@ -138,7 +150,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
         </div>
         <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel>Failure field</InlineFormLabel>
+          <InlineFormLabel width={20}>Failure field</InlineFormLabel>
           <Switch
             css="css"
             value={failureField == null ? true : failureField}
@@ -146,7 +158,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
         </div>
         <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel>Cancelled field</InlineFormLabel>
+          <InlineFormLabel width={20}>Cancelled field</InlineFormLabel>
           <Switch
             css="css"
             value={cancelledField == null ? true : cancelledField}
@@ -154,7 +166,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
         </div>
         <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel>Timed Out field</InlineFormLabel>
+          <InlineFormLabel width={20}>Timed Out field</InlineFormLabel>
           <Switch
             css="css"
             value={timedOutField == null ? true : timedOutField}
@@ -162,7 +174,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
         </div>
         <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel>Total Duration Field</InlineFormLabel>
+          <InlineFormLabel width={20}>Total Duration Field</InlineFormLabel>
           <Switch
             css="css"
             value={totalDurationField == null ? true : totalDurationField}
@@ -170,11 +182,27 @@ export class QueryEditor extends PureComponent<Props> {
           />
         </div>
         <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel>Average Duration Field</InlineFormLabel>
+          <InlineFormLabel width={20}>Average Duration Field</InlineFormLabel>
           <Switch
             css="css"
             value={averageDurationField == null ? true : averageDurationField}
             onChange={this.onAverageDurationFieldSwitchChange}
+          />
+        </div>
+        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+          <InlineFormLabel width={20}>Total Time To Recovery Field</InlineFormLabel>
+          <Switch
+            css="css"
+            value={totalTimeToRecoveryField == null ? true : totalTimeToRecoveryField}
+            onChange={this.onTotalTimeToRecoveryFieldSwitchChange}
+          />
+        </div>
+        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+          <InlineFormLabel width={20}>Average Time To Recovery Field</InlineFormLabel>
+          <Switch
+            css="css"
+            value={averageTimeToRecoveryField == null ? true : averageTimeToRecoveryField}
+            onChange={this.onAverageTimeToRecoveryFieldSwitchChange}
           />
         </div>
       </div>

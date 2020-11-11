@@ -91,16 +91,7 @@ func getQueryDetails(req *backend.QueryDataRequest, path string, space string, a
 		}
 	}
 
-	sort.Strings(environments)
-	environment := ""
-	if environments[0] == environments[len(environments)-1] {
-		environmentName, err := resourceNameToId("environments", path, space, apiKey, environments[0])
-		if err == nil {
-			environment = environmentName
-		}
-	}
-
-	return earliestDate, latestDate, project, environment
+	return earliestDate, latestDate, project, ""
 }
 
 // QueryData handles multiple queries and returns multiple responses.
@@ -211,6 +202,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	failure := []uint32{}
 	cancelled := []uint32{}
 	timedOut := []uint32{}
+	totalTimeToRecovery := []uint32{}
+	avgTimeToRecovery := []uint32{}
 
 	// Work out how long the buckets should be
 	buckets := Min(maxFrames, int64(query.TimeRange.Duration()/bucketDuration))
@@ -225,16 +218,42 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	}
 
 	for i := 0; i < int(buckets); i++ {
+		bucketTotalTime := []uint32{}
+		bucketTimeToRecovery := []uint32{}
+
 		roundedTime := query.TimeRange.From.Add(bucketDuration * time.Duration(i)).Round(bucketDuration)
 		if query.TimeRange.From.Before(roundedTime) && query.TimeRange.To.After(roundedTime) {
 
 			count := 0
 
 			// This could be optimised with some sorting and culling
-			for _, d := range deployments.Deployments {
+			for index, d := range deployments.Deployments {
 				if includeDeployment(&qm, &d) && d.CompetedTimeRounded.Equal(roundedTime) {
 
 					count++
+
+					// If this task was a failure, scan forward to the next success
+					thisTimeToRecovery := uint32(0)
+					if d.TaskState == "Failed" {
+						for index2 := index + 1; index2 < len(deployments.Deployments); index2++ {
+							d2 := deployments.Deployments[index2]
+							if d2.TaskState == "Success" &&
+								d2.ChannelId == d.ChannelId &&
+								d2.EnvironmentId == d.EnvironmentId &&
+								d2.ProjectId == d.ProjectId &&
+								d2.TenantId == d.TenantId {
+								timeToRecovery2, err := dateDiff(
+									d2.CompletedTime,
+									d.CompletedTime)
+								if err == nil {
+									thisTimeToRecovery = uint32(timeToRecovery2 / time.Minute)
+								}
+							}
+						}
+					}
+
+					bucketTimeToRecovery = append(bucketTimeToRecovery, thisTimeToRecovery)
+					bucketTotalTime = append(bucketTotalTime, d.DurationSeconds)
 
 					if len(times) != 0 && times[len(times)-1].Equal(roundedTime) {
 						success[len(success)-1] += func() uint32 {
@@ -245,7 +264,7 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 							}
 						}()
 						failure[len(failure)-1] += func() uint32 {
-							if d.TaskState == "Failure" {
+							if d.TaskState == "Failed" {
 								return 1
 							} else {
 								return 0
@@ -266,7 +285,9 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 							}
 						}()
 						totalDuration[len(totalDuration)-1] += d.DurationSeconds
-						avgDuration[len(avgDuration)-1] = arrayAverage(totalDuration)
+						avgDuration[len(avgDuration)-1] = arrayAverage(bucketTotalTime)
+						totalTimeToRecovery[len(totalTimeToRecovery)-1] += thisTimeToRecovery
+						avgTimeToRecovery[len(avgTimeToRecovery)-1] = arrayAverageDurationIgnoreZero(bucketTimeToRecovery)
 					} else {
 						times = append(times, roundedTime)
 						success = append(success, func() uint32 {
@@ -299,6 +320,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 						}())
 						avgDuration = append(avgDuration, float32(d.DurationSeconds))
 						totalDuration = append(totalDuration, d.DurationSeconds)
+						totalTimeToRecovery = append(totalTimeToRecovery, thisTimeToRecovery)
+						avgTimeToRecovery = append(avgTimeToRecovery, thisTimeToRecovery)
 					}
 				}
 			}
@@ -311,6 +334,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 				timedOut = append(timedOut, 0)
 				avgDuration = append(avgDuration, 0)
 				totalDuration = append(totalDuration, 0)
+				totalTimeToRecovery = append(totalTimeToRecovery, 0)
+				avgTimeToRecovery = append(avgTimeToRecovery, 0)
 			}
 		}
 	}
@@ -339,6 +364,14 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 
 	if qm.AverageDurationField {
 		frame.Fields = append(frame.Fields, data.NewField("avgDuration", nil, avgDuration))
+	}
+
+	if qm.TotalTimeToRecoveryField {
+		frame.Fields = append(frame.Fields, data.NewField("totalTimToRecovery", nil, totalTimeToRecovery))
+	}
+
+	if qm.AverageTimeToRecoveryField {
+		frame.Fields = append(frame.Fields, data.NewField("avgTimeToRecovery", nil, avgTimeToRecovery))
 	}
 
 	// add the frames to the response

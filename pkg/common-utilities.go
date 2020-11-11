@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strings"
 	"time"
 )
@@ -41,6 +42,34 @@ func arrayAverage(items []uint32) float32 {
 	return float32(total) / float32(len(items))
 }
 
+func arrayAverageDurationIgnoreZero(items []uint32) uint32 {
+	total := uint32(0)
+	count := uint32(0)
+	for i := 0; i < len(items); i++ {
+		if items[i] != 0 {
+			total += items[i]
+			count++
+		}
+	}
+
+	if count == 0 {
+		return 0
+	}
+
+	return total / count
+}
+
 func empty(s string) bool {
 	return len(strings.TrimSpace(s)) == 0
+}
+
+func dateDiff(date1 string, date2 string) (time.Duration, error) {
+	date1Parsed, err1 := time.Parse(dateFormat, date1)
+	date2Parsed, err2 := time.Parse(dateFormat, date2)
+
+	if err1 == nil && err2 == nil {
+		return date1Parsed.Sub(date2Parsed), nil
+	}
+
+	return time.Duration(0), errors.New("failed to parse one or both dates")
 }
