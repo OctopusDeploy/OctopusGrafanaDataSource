@@ -9,33 +9,15 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
-	"io/ioutil"
 	"net/http"
 	"net/url"
-	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
-const dateFormat = "2006-01-02T15:04:05"
 const octopusDateFormat = "2006-01-02 15:04:05"
 const maxFrames = 50
-
-func Min(x, y int64) int64 {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func MinInt(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
 
 // newDatasource returns datasource.ServeOpts.
 func newDatasource() datasource.ServeOpts {
@@ -62,15 +44,8 @@ type SampleDatasource struct {
 	im instancemgmt.InstanceManager
 }
 
-type jsonData struct {
-	Server         string
-	SpaceId        string
-	BucketDuration string
-	Format         string
-}
-
 func getConnectionDetails(context backend.PluginContext) (string, string, string, time.Duration) {
-	var jsonData jsonData
+	var jsonData datasourceModel
 	json.Unmarshal(context.DataSourceInstanceSettings.JSONData, &jsonData)
 	apiKey := context.DataSourceInstanceSettings.DecryptedSecureJSONData["apiKey"]
 
@@ -188,94 +163,6 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 	}
 
 	return response, nil
-}
-
-type queryModel struct {
-	ProjectName          string `json:"projectName"`
-	TenantName           string `json:"tenantName"`
-	EnvironmentName      string `json:"environmentName"`
-	ChannelName          string `json:"channelName"`
-	ReleaseVersion       string `json:"releaseVersion"`
-	Format               string `json:"format"`
-	SuccessField         bool   `json:"successField"`
-	FailureField         bool   `json:"failureField"`
-	CancelledField       bool   `json:"cancelledField"`
-	TimedOutField        bool   `json:"timedOutField"`
-	TotalDurationField   bool   `json:"totalDurationField"`
-	AverageDurationField bool   `json:"averageDurationField"`
-}
-
-func slugify(value string) string {
-	value = strings.ToLower(value)
-	value = regexp.MustCompile(`\s`).ReplaceAllString(value, "-")
-	value = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(value, "-")
-	value = regexp.MustCompile(`-+`).ReplaceAllString(value, "-")
-	value = strings.Trim(value, "-/")
-	return value
-}
-
-func resourceNameToId(resourceType string, path string, space string, apiKey string, resourceName string) (string, error) {
-	url := path + "/api/" + space + "/" + resourceType + "/" + slugify(resourceName) + "?apikey=" + apiKey
-	resp, err := http.Get(url)
-	defer resp.Body.Close()
-
-	if err != nil {
-		return "", err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	parsedResults := IdResource{}
-	err = json.Unmarshal(body, &parsedResults)
-
-	if err == nil {
-		return parsedResults.Id, nil
-	}
-
-	return "", err
-}
-
-func httpGet(url string) (result []byte, err error) {
-	resp, err := http.Get(url)
-	defer resp.Body.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return body, nil
-}
-
-func parseTime(timeString string) time.Time {
-	parsedTime, err := time.Parse(dateFormat, timeString)
-	if err != nil {
-		return parsedTime
-	}
-	return time.Time{}
-}
-
-func arrayAverage(items []uint32) float32 {
-	if len(items) == 0 {
-		return 0
-	}
-
-	total := uint32(0)
-	for i := 0; i < len(items); i++ {
-		total += items[i]
-	}
-	return float32(total) / float32(len(items))
-}
-
-func empty(s string) bool {
-	return len(strings.TrimSpace(s)) == 0
 }
 
 func includeDeployment(qm *queryModel, deployment *Deployment) bool {
