@@ -41,6 +41,11 @@ export class QueryEditor extends PureComponent<Props> {
     onChange({...query, releaseVersion: event.target.value});
   };
 
+  onTaskSTateTextChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const {onChange, query} = this.props;
+    onChange({...query, taskState: event.target.value});
+  };
+
   onSuccessFieldSwitchChange = (event: ChangeEvent<HTMLInputElement>) => {
     const {onChange, query} = this.props;
     onChange({...query, successField: event.target.checked});
@@ -89,6 +94,7 @@ export class QueryEditor extends PureComponent<Props> {
       channelName,
       tenantName,
       releaseVersion,
+      taskState,
       format,
       successField,
       failureField,
@@ -140,6 +146,12 @@ export class QueryEditor extends PureComponent<Props> {
           value={releaseVersion || ''}
           onChange={this.onReleaseVersionTextChange}
           label="Release Version"
+        />
+        <FormField
+          labelWidth={8}
+          value={taskState || ''}
+          onChange={this.onTaskSTateTextChange}
+          label="Task State"
         />
         <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
           <InlineFormLabel width={20}>Success field</InlineFormLabel>

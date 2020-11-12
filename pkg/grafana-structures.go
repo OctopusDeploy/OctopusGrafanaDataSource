@@ -6,6 +6,7 @@ type queryModel struct {
 	EnvironmentName            string `json:"environmentName"`
 	ChannelName                string `json:"channelName"`
 	ReleaseVersion             string `json:"releaseVersion"`
+	TaskState                  string `json:"TaskState"`
 	Format                     string `json:"format"`
 	SuccessField               bool   `json:"successField"`
 	FailureField               bool   `json:"failureField"`

@@ -6,6 +6,7 @@ export interface MyQuery extends DataQuery {
   environmentName?: string;
   channelName?: string;
   releaseVersion?: string;
+  taskState?: string;
   format?: string;
   successField: boolean;
   failureField: boolean;

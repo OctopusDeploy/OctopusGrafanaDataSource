@@ -177,7 +177,34 @@ func includeDeployment(qm *queryModel, deployment *Deployment) bool {
 		return false
 	}
 
+	if !empty(qm.TaskState) && deployment.TaskState != qm.TaskState {
+		return false
+	}
+
 	return true
+}
+
+func getTimeToSuccess(deployment Deployment, deployments []Deployment, index int) uint32 {
+	// If this task was a failure, scan forward to the next success
+	if deployment.TaskState == "Failed" {
+		for index2 := index + 1; index2 < len(deployments); index2++ {
+			d2 := deployments[index2]
+			if d2.TaskState == "Success" &&
+				d2.ChannelId == deployment.ChannelId &&
+				d2.EnvironmentId == deployment.EnvironmentId &&
+				d2.ProjectId == deployment.ProjectId &&
+				d2.TenantId == deployment.TenantId {
+				timeToRecovery2, err := dateDiff(
+					d2.CompletedTime,
+					deployment.CompletedTime)
+				if err == nil {
+					return uint32(timeToRecovery2 / time.Minute)
+				}
+			}
+		}
+	}
+
+	return 0
 }
 
 func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, bucketDuration time.Duration) backend.DataResponse {
@@ -233,24 +260,7 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 					count++
 
 					// If this task was a failure, scan forward to the next success
-					thisTimeToRecovery := uint32(0)
-					if d.TaskState == "Failed" {
-						for index2 := index + 1; index2 < len(deployments.Deployments); index2++ {
-							d2 := deployments.Deployments[index2]
-							if d2.TaskState == "Success" &&
-								d2.ChannelId == d.ChannelId &&
-								d2.EnvironmentId == d.EnvironmentId &&
-								d2.ProjectId == d.ProjectId &&
-								d2.TenantId == d.TenantId {
-								timeToRecovery2, err := dateDiff(
-									d2.CompletedTime,
-									d.CompletedTime)
-								if err == nil {
-									thisTimeToRecovery = uint32(timeToRecovery2 / time.Minute)
-								}
-							}
-						}
-					}
+					thisTimeToRecovery := getTimeToSuccess(d, deployments.Deployments, index)
 
 					bucketTimeToRecovery = append(bucketTimeToRecovery, thisTimeToRecovery)
 					bucketTotalTime = append(bucketTotalTime, d.DurationSeconds)
@@ -416,8 +426,9 @@ func (td *SampleDatasource) queryTable(ctx context.Context, query backend.DataQu
 	queueTime := []time.Time{}
 	startTime := []time.Time{}
 	duration := []uint32{}
+	thisTimeToRecovery := []uint32{}
 
-	for _, d := range deployments.Deployments {
+	for index, d := range deployments.Deployments {
 		if includeDeployment(&qm, &d) {
 			times = append(times, parseTime(d.CompletedTime))
 			deploymentId = append(deploymentId, d.DeploymentId)
@@ -440,6 +451,7 @@ func (td *SampleDatasource) queryTable(ctx context.Context, query backend.DataQu
 			queueTime = append(queueTime, parseTime(d.QueueTime))
 			startTime = append(startTime, parseTime(d.StartTime))
 			duration = append(duration, d.DurationSeconds)
+			thisTimeToRecovery = append(thisTimeToRecovery, getTimeToSuccess(d, deployments.Deployments, index))
 		}
 	}
 
@@ -464,7 +476,8 @@ func (td *SampleDatasource) queryTable(ctx context.Context, query backend.DataQu
 		data.NewField("created", nil, created),
 		data.NewField("queuetime", nil, queueTime),
 		data.NewField("starttime", nil, startTime),
-		data.NewField("duration", nil, duration))
+		data.NewField("duration", nil, duration),
+		data.NewField("timeToRecovery", nil, thisTimeToRecovery))
 
 	// add the frames to the response
 	response.Frames = append(response.Frames, frame)
