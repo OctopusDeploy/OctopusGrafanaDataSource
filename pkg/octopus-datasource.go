@@ -156,6 +156,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 	return response, nil
 }
 
+// includeDeployment will determine if a deployment record satisfies the current filters
 func includeDeployment(qm *queryModel, deployment *Deployment) bool {
 	if !empty(qm.ReleaseVersion) && deployment.ReleaseVersion != qm.ReleaseVersion {
 		return false
@@ -184,6 +185,9 @@ func includeDeployment(qm *queryModel, deployment *Deployment) bool {
 	return true
 }
 
+// getTimeToSuccess will match failed deployments, find the next successful deployment
+// and return the time between the two deployments. It returns 0 for successful deployments,
+// or failed deployments that have not been followed by a successful deployment.
 func getTimeToSuccess(deployment Deployment, deployments []Deployment, index int) uint32 {
 	// If this task was a failure, scan forward to the next success
 	if deployment.TaskState == "Failed" {
@@ -207,14 +211,36 @@ func getTimeToSuccess(deployment Deployment, deployments []Deployment, index int
 	return 0
 }
 
-func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, bucketDuration time.Duration) backend.DataResponse {
+func getQueryModel(jsonData []byte) (queryModel, error) {
 	// Unmarshal the json into our queryModel
 	var qm queryModel
 
+	err := json.Unmarshal(jsonData, &qm)
+	return qm, err
+}
+
+func getBucketDuration(queryDuration time.Duration, bucketDuration time.Duration) (int64, time.Duration) {
+	buckets := Min(maxFrames, int64(queryDuration/bucketDuration))
+	return buckets, queryDuration / time.Duration(buckets)
+}
+
+func setCompletedTimeRounded(deployments Deployments, bucketDuration time.Duration) {
+	for i := 0; i < len(deployments.Deployments); i++ {
+		time, err := time.Parse(dateFormat, deployments.Deployments[i].CompletedTime)
+		if err == nil {
+			deployments.Deployments[i].CompetedTimeRounded = time.Round(bucketDuration)
+		}
+	}
+}
+
+// query generates a time series response, combining deployment information into time buckets
+// that can be displayed in a graph.
+func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, requestedBucketDuration time.Duration) backend.DataResponse {
 	response := backend.DataResponse{}
 
-	response.Error = json.Unmarshal(query.JSON, &qm)
-	if response.Error != nil {
+	// Unmarshal the json into our queryModel
+	qm, err := getQueryModel(query.JSON)
+	if err != nil {
 		return response
 	}
 
@@ -233,28 +259,28 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	avgTimeToRecovery := []uint32{}
 
 	// Work out how long the buckets should be
-	buckets := Min(maxFrames, int64(query.TimeRange.Duration()/bucketDuration))
-	bucketDuration = query.TimeRange.Duration() / time.Duration(buckets)
+	buckets, bucketDuration := getBucketDuration(query.TimeRange.Duration(), requestedBucketDuration)
 
 	// get the bucket start time for each deployment
-	for i := 0; i < len(deployments.Deployments); i++ {
-		time, err := time.Parse(dateFormat, deployments.Deployments[i].CompletedTime)
-		if err == nil {
-			deployments.Deployments[i].CompetedTimeRounded = time.Round(bucketDuration)
-		}
-	}
+	setCompletedTimeRounded(deployments, bucketDuration)
 
 	for i := 0; i < int(buckets); i++ {
 		bucketTotalTime := []uint32{}
 		bucketTimeToRecovery := []uint32{}
 
+		// Get the time that starts this bucket
 		roundedTime := query.TimeRange.From.Add(bucketDuration * time.Duration(i)).Round(bucketDuration)
+
+		// Grafana really doesn't like it if you have records outside of the range, so make
+		// sure we are definitely inside the query range here.
 		if query.TimeRange.From.Before(roundedTime) && query.TimeRange.To.After(roundedTime) {
 
 			count := 0
 
 			// This could be optimised with some sorting and culling
 			for index, d := range deployments.Deployments {
+				// Make sure the deployment matches the query filters, and the deployment
+				// completion time matches the start of this time bucket
 				if includeDeployment(&qm, &d) && d.CompetedTimeRounded.Equal(roundedTime) {
 
 					count++
@@ -266,68 +292,20 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 					bucketTotalTime = append(bucketTotalTime, d.DurationSeconds)
 
 					if len(times) != 0 && times[len(times)-1].Equal(roundedTime) {
-						success[len(success)-1] += func() uint32 {
-							if d.TaskState == "Success" {
-								return 1
-							} else {
-								return 0
-							}
-						}()
-						failure[len(failure)-1] += func() uint32 {
-							if d.TaskState == "Failed" {
-								return 1
-							} else {
-								return 0
-							}
-						}()
-						cancelled[len(cancelled)-1] += func() uint32 {
-							if d.TaskState == "Cancelled" {
-								return 1
-							} else {
-								return 0
-							}
-						}()
-						timedOut[len(timedOut)-1] += func() uint32 {
-							if d.TaskState == "TimedOut" {
-								return 1
-							} else {
-								return 0
-							}
-						}()
+						success[len(success)-1] += boolToInt(d.TaskState == "Success")
+						failure[len(failure)-1] += boolToInt(d.TaskState == "Failed")
+						cancelled[len(cancelled)-1] += boolToInt(d.TaskState == "Cancelled")
+						timedOut[len(timedOut)-1] += boolToInt(d.TaskState == "TimedOut")
 						totalDuration[len(totalDuration)-1] += d.DurationSeconds
 						avgDuration[len(avgDuration)-1] = arrayAverage(bucketTotalTime)
 						totalTimeToRecovery[len(totalTimeToRecovery)-1] += thisTimeToRecovery
 						avgTimeToRecovery[len(avgTimeToRecovery)-1] = arrayAverageDurationIgnoreZero(bucketTimeToRecovery)
 					} else {
 						times = append(times, roundedTime)
-						success = append(success, func() uint32 {
-							if d.TaskState == "Success" {
-								return 1
-							} else {
-								return 0
-							}
-						}())
-						failure = append(failure, func() uint32 {
-							if d.TaskState == "Failed" {
-								return 1
-							} else {
-								return 0
-							}
-						}())
-						cancelled = append(cancelled, func() uint32 {
-							if d.TaskState == "Cancelled" {
-								return 1
-							} else {
-								return 0
-							}
-						}())
-						timedOut = append(timedOut, func() uint32 {
-							if d.TaskState == "TimedOut" {
-								return 1
-							} else {
-								return 0
-							}
-						}())
+						success = append(success, boolToInt(d.TaskState == "Success"))
+						failure = append(failure, boolToInt(d.TaskState == "Failed"))
+						cancelled = append(cancelled, boolToInt(d.TaskState == "Cancelled"))
+						timedOut = append(timedOut, boolToInt(d.TaskState == "TimedOut"))
 						avgDuration = append(avgDuration, float32(d.DurationSeconds))
 						totalDuration = append(totalDuration, d.DurationSeconds)
 						totalTimeToRecovery = append(totalTimeToRecovery, thisTimeToRecovery)
@@ -336,6 +314,7 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 				}
 			}
 
+			// If no deployments fell inside this time bucket, add a zero record
 			if count == 0 {
 				times = append(times, roundedTime)
 				success = append(success, 0)

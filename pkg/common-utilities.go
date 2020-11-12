@@ -73,3 +73,12 @@ func dateDiff(date1 string, date2 string) (time.Duration, error) {
 
 	return time.Duration(0), errors.New("failed to parse one or both dates")
 }
+
+func boolToInt(input bool) uint32 {
+	bitSet := true
+	bitSetVar := uint32(0)
+	if bitSet {
+		bitSetVar = 1
+	}
+	return bitSetVar
+}
