@@ -130,111 +130,117 @@ export class QueryEditor extends PureComponent<Props> {
           />
         </div>
         <FormField
-          labelWidth={8}
+          labelWidth={20}
           value={spaceName || ''}
           onChange={this.onSpaceNameTextChange}
           label="Space Name"
         />
-        <FormField
-          labelWidth={8}
-          value={projectName || ''}
-          onChange={this.onProjectNameTextChange}
-          label="Project Name"
-        />
-        <FormField
-          labelWidth={8}
-          value={environmentName || ''}
-          onChange={this.onEnvironmentNameTextChange}
-          label="Environment Name"
-        />
-        <FormField
-          labelWidth={8}
-          value={channelName || ''}
-          onChange={this.onChannelNameTextChange}
-          label="Channel Name"
-        />
-        <FormField
-          labelWidth={8}
-          value={tenantName || ''}
-          onChange={this.onTenantNameTextChange}
-          label="Tenant Name"
-        />
-        <FormField
-          labelWidth={8}
-          value={releaseVersion || ''}
-          onChange={this.onReleaseVersionTextChange}
-          label="Release Version"
-        />
-        <FormField
-          labelWidth={8}
-          value={taskState || ''}
-          onChange={this.onTaskSTateTextChange}
-          label="Task State"
-        />
-        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel width={20}>Success field</InlineFormLabel>
-          <Switch
-            css="css"
-            value={successField == null ? true : successField}
-            onChange={this.onSuccessFieldSwitchChange}
+        {(format == "timeseries" || format == "table") &&
+        <div>
+          <FormField
+            labelWidth={20}
+            value={projectName || ''}
+            onChange={this.onProjectNameTextChange}
+            label="Project Name"
           />
-        </div>
-        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel width={20}>Failure field</InlineFormLabel>
-          <Switch
-            css="css"
-            value={failureField == null ? true : failureField}
-            onChange={this.onFailureFieldSwitchChange}
+          <FormField
+            labelWidth={20}
+            value={environmentName || ''}
+            onChange={this.onEnvironmentNameTextChange}
+            label="Environment Name"
           />
-        </div>
-        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel width={20}>Cancelled field</InlineFormLabel>
-          <Switch
-            css="css"
-            value={cancelledField == null ? true : cancelledField}
-            onChange={this.onCancelledFieldSwitchChange}
+          <FormField
+            labelWidth={20}
+            value={channelName || ''}
+            onChange={this.onChannelNameTextChange}
+            label="Channel Name"
           />
-        </div>
-        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel width={20}>Timed Out field</InlineFormLabel>
-          <Switch
-            css="css"
-            value={timedOutField == null ? true : timedOutField}
-            onChange={this.onTimedOutFieldSwitchChange}
+          <FormField
+            labelWidth={20}
+            value={tenantName || ''}
+            onChange={this.onTenantNameTextChange}
+            label="Tenant Name"
           />
-        </div>
-        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel width={20}>Total Duration Field</InlineFormLabel>
-          <Switch
-            css="css"
-            value={totalDurationField == null ? true : totalDurationField}
-            onChange={this.onTotalDurationFieldSwitchChange}
+          <FormField
+            labelWidth={20}
+            value={releaseVersion || ''}
+            onChange={this.onReleaseVersionTextChange}
+            label="Release Version"
           />
-        </div>
-        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel width={20}>Average Duration Field</InlineFormLabel>
-          <Switch
-            css="css"
-            value={averageDurationField == null ? true : averageDurationField}
-            onChange={this.onAverageDurationFieldSwitchChange}
+          <FormField
+            labelWidth={20}
+            value={taskState || ''}
+            onChange={this.onTaskSTateTextChange}
+            label="Task State"
           />
-        </div>
-        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel width={20}>Total Time To Recovery Field</InlineFormLabel>
-          <Switch
-            css="css"
-            value={totalTimeToRecoveryField == null ? true : totalTimeToRecoveryField}
-            onChange={this.onTotalTimeToRecoveryFieldSwitchChange}
-          />
-        </div>
-        <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-          <InlineFormLabel width={20}>Average Time To Recovery Field</InlineFormLabel>
-          <Switch
-            css="css"
-            value={averageTimeToRecoveryField == null ? true : averageTimeToRecoveryField}
-            onChange={this.onAverageTimeToRecoveryFieldSwitchChange}
-          />
-        </div>
+          {format == "timeseries" &&
+          <div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Success field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={successField == null ? true : successField}
+                onChange={this.onSuccessFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Failure field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={failureField == null ? true : failureField}
+                onChange={this.onFailureFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Cancelled field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={cancelledField == null ? true : cancelledField}
+                onChange={this.onCancelledFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Timed Out field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={timedOutField == null ? true : timedOutField}
+                onChange={this.onTimedOutFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Total Duration Field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={totalDurationField == null ? true : totalDurationField}
+                onChange={this.onTotalDurationFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Average Duration Field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={averageDurationField == null ? true : averageDurationField}
+                onChange={this.onAverageDurationFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Total Time To Recovery Field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={totalTimeToRecoveryField == null ? true : totalTimeToRecoveryField}
+                onChange={this.onTotalTimeToRecoveryFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Average Time To Recovery Field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={averageTimeToRecoveryField == null ? true : averageTimeToRecoveryField}
+                onChange={this.onAverageTimeToRecoveryFieldSwitchChange}
+              />
+            </div>
+          </div>}
+        </div>}
       </div>
     );
   }
