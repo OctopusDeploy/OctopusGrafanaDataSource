@@ -18,16 +18,34 @@ func slugify(value string) string {
 	return value
 }
 
-func resourceNameToId(resourceType string, path string, space string, apiKey string, resourceName string) (string, error) {
-	url := path + "/api/" + space + "/" + resourceType + "/" + slugify(resourceName) + "?apikey=" + apiKey
-	resp, err := http.Get(url)
-	defer resp.Body.Close()
-
+func createRequest(url string, apiKey string) ([]byte, error) {
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
+	req.Header.Set("X-Octopus-ApiKey", apiKey)
+
+	client := &http.Client{Timeout: time.Second * 100}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func resourceNameToId(resourceType string, path string, space string, apiKey string, resourceName string) (string, error) {
+	url := path + "/api/" + space + "/" + resourceType + "/" + slugify(resourceName) + "?apikey=" + apiKey
+
+	body, err := createRequest(url, apiKey)
 	if err != nil {
 		return "", err
 	}
@@ -40,6 +58,34 @@ func resourceNameToId(resourceType string, path string, space string, apiKey str
 	}
 
 	return "", err
+}
+
+func getAllResources(resourceType string, path string, space string, apiKey string) (map[string]string, error) {
+	var url string
+
+	if empty(space) {
+		url = path + "/api/" + space + "/" + resourceType + "/all"
+	} else {
+		url = path + "/api/" + resourceType + "/all"
+	}
+
+	body, err := createRequest(url, apiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var parsedResults []IdResource
+	err = json.Unmarshal(body, &parsedResults)
+
+	if err == nil {
+		results := make(map[string]string)
+		for _, r := range parsedResults {
+			results[r.Name] = r.Id
+		}
+		return results, nil
+	}
+
+	return nil, err
 }
 
 // getTimeToSuccess will match failed deployments, find the next successful deployment

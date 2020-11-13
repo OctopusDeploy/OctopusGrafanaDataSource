@@ -16,6 +16,11 @@ export class QueryEditor extends PureComponent<Props> {
     onChange({...query, format: value.value});
   };
 
+  onSpaceNameTextChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const {onChange, query} = this.props;
+    onChange({...query, spaceName: event.target.value});
+  };
+
   onProjectNameTextChange = (event: ChangeEvent<HTMLInputElement>) => {
     const {onChange, query} = this.props;
     onChange({...query, projectName: event.target.value});
@@ -89,6 +94,7 @@ export class QueryEditor extends PureComponent<Props> {
   render() {
     const query = defaults(this.props.query, defaultQuery);
     const {
+      spaceName,
       projectName,
       environmentName,
       channelName,
@@ -105,7 +111,13 @@ export class QueryEditor extends PureComponent<Props> {
       totalTimeToRecoveryField,
       averageTimeToRecoveryField
     } = query;
-    const formatOptions = [{value: "timeseries", label: "time series"}, {value: "table", label: "table"}];
+    const formatOptions = [
+      {value: "timeseries", label: "deployments time series"},
+      {value: "table", label: "deployments table"},
+      {value: "environments", label: "environments table"},
+      {value: "tenants", label: "tenants table"},
+      {value: "channels", label: "channels table"},
+      {value: "projects", label: "environments table"}];
 
     return (
       <div className="gf-form" style={{flexDirection: "column"}}>
@@ -117,6 +129,12 @@ export class QueryEditor extends PureComponent<Props> {
             onChange={this.onFormatTextChange}
           />
         </div>
+        <FormField
+          labelWidth={8}
+          value={spaceName || ''}
+          onChange={this.onSpaceNameTextChange}
+          label="Space Name"
+        />
         <FormField
           labelWidth={8}
           value={projectName || ''}

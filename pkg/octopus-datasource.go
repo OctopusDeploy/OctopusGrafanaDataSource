@@ -10,7 +10,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 )
 
@@ -42,17 +41,27 @@ type SampleDatasource struct {
 	im instancemgmt.InstanceManager
 }
 
-func getConnectionDetails(context backend.PluginContext) (string, string, string, time.Duration) {
+func getConnectionDetails(context backend.PluginContext) (string, string, time.Duration) {
 	var jsonData datasourceModel
 	json.Unmarshal(context.DataSourceInstanceSettings.JSONData, &jsonData)
 	apiKey := context.DataSourceInstanceSettings.DecryptedSecureJSONData["apiKey"]
+	return jsonData.Server, apiKey, time.Duration(60)
+}
 
-	duration, err := strconv.Atoi(jsonData.BucketDuration)
+func getDeploymentHistory(server string, spaceId string, apiKey string, earliestDate time.Time, latestDate time.Time) (Deployments, error) {
+	query := server + "/api/" + spaceId + "/reporting/deployments/xml?apikey=" + apiKey +
+		"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+		"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+
+	result, err := createRequest(query, apiKey)
+	parsedResults := Deployments{}
+
 	if err != nil {
-		duration = 60
+		return parsedResults, nil
 	}
 
-	return jsonData.Server, jsonData.SpaceId, apiKey, time.Duration(duration)
+	xml.Unmarshal(result, &parsedResults)
+	return parsedResults, nil
 }
 
 // QueryData handles multiple queries and returns multiple responses.
@@ -63,9 +72,11 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 	// create response struct
 	response := backend.NewQueryDataResponse()
 
-	server, space, apiKey, bucketDuration := getConnectionDetails(req.PluginContext)
+	server, apiKey, bucketDuration := getConnectionDetails(req.PluginContext)
 
-	earliestDate, latestDate, project, environment := getQueryDetails(req, server, space, apiKey)
+	earliestDate, latestDate, _, _ := getQueryDetails(req, server, apiKey)
+
+	data := make(map[string]*Deployments)
 
 	for i := 0; i < len(req.Queries); i++ {
 		if earliestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.From.Before(earliestDate) {
@@ -77,27 +88,33 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		}
 	}
 
-	query := server + "/api/" + space + "/reporting/deployments/xml?apikey=" + apiKey +
-		"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
-		"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
-
-	if project != "" {
-		query += "&projectId=" + project
-	}
-
-	if environment != "" {
-		query += "&environmentId=" + environment
-	}
-
-	result, err := httpGet(query)
+	// get a mapping of space names to ids
+	spaces, err := getAllResources("spaces", server, "", apiKey)
 
 	if err != nil {
-		return response, nil
+		return nil, err
 	}
-	parsedResults := Deployments{}
-	xml.Unmarshal(result, &parsedResults)
 
-	log.DefaultLogger.Info("Octopus result count " + strconv.Itoa(len(parsedResults.Deployments)))
+	for i := 0; i < len(req.Queries); i++ {
+		var qm queryModel
+		json.Unmarshal(req.Queries[i].JSON, &qm)
+
+		// get the deployments for any query that requests them
+		if qm.Format == "table" || qm.Format == "timeseries" {
+			// query each space once
+			if _, ok := data[qm.SpaceName]; !ok {
+				query := server + "/api/" + spaces[qm.SpaceName] + "/reporting/deployments/xml?apikey=" + apiKey +
+					"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+					"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+
+				xmlData, err := createRequest(query, apiKey)
+				if err == nil {
+					data[qm.SpaceName] = &Deployments{}
+					xml.Unmarshal(xmlData, data[qm.SpaceName])
+				}
+			}
+		}
+	}
 
 	// loop over queries and execute them individually.
 	for _, q := range req.Queries {
@@ -107,10 +124,16 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		dataResponse := backend.DataResponse{}
 
 		dataResponse.Error = json.Unmarshal(q.JSON, &qm)
-		if dataResponse.Error == nil && qm.Format == "table" {
-			response.Responses[q.RefID] = td.queryTable(ctx, q, parsedResults, bucketDuration)
+		if dataResponse.Error != nil {
+			return nil, dataResponse.Error
+		}
+
+		if qm.Format == "table" {
+			response.Responses[q.RefID] = td.queryTable(ctx, q, *data[qm.SpaceName], bucketDuration)
+		} else if qm.Format == "timeseries" {
+			response.Responses[q.RefID] = td.query(ctx, q, *data[qm.SpaceName], bucketDuration)
 		} else {
-			response.Responses[q.RefID] = td.query(ctx, q, parsedResults, bucketDuration)
+			response.Responses[q.RefID], _ = td.queryResources(qm.Format, spaces[qm.SpaceName], ctx, req)
 		}
 	}
 
@@ -124,9 +147,9 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 func (td *SampleDatasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
 	log.DefaultLogger.Info("CheckHealth")
 
-	path, space, apiKey, _ := getConnectionDetails(req.PluginContext)
+	path, apiKey, _ := getConnectionDetails(req.PluginContext)
 
-	_, err := httpGet(path + "/api/" + space + "/reporting/deployments/xml?apikey=" + apiKey)
+	_, err := createRequest(path+"/api", apiKey)
 
 	if err != nil {
 		return &backend.CheckHealthResult{

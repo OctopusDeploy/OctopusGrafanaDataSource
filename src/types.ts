@@ -1,6 +1,7 @@
 import { DataQuery, DataSourceJsonData } from '@grafana/data';
 
 export interface MyQuery extends DataQuery {
+  spaceName?: string;
   projectName?: string;
   tenantName?: string;
   environmentName?: string;
@@ -34,8 +35,6 @@ export const defaultQuery: Partial<MyQuery> = {
  */
 export interface MyDataSourceOptions extends DataSourceJsonData {
   server?: string;
-  spaceId?: string;
-  bucketDuration?: string;
 }
 
 /**

@@ -3,15 +3,15 @@ package main
 import (
 	"encoding/json"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"sort"
 	"time"
 )
 
-func getQueryDetails(req *backend.QueryDataRequest, path string, space string, apiKey string) (time.Time, time.Time, string, string) {
+func getQueryDetails(req *backend.QueryDataRequest, path string, apiKey string) (time.Time, time.Time, string, string) {
 	earliestDate := time.Time{}
 	latestDate := time.Time{}
 	projects := []string{}
 	environments := []string{}
+	spaces := []string{}
 
 	for i := 0; i < len(req.Queries); i++ {
 		if earliestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.From.Before(earliestDate) {
@@ -29,19 +29,11 @@ func getQueryDetails(req *backend.QueryDataRequest, path string, space string, a
 		if response.Error == nil {
 			projects = append(projects, qm.ProjectName)
 			environments = append(environments, qm.EnvironmentName)
+			spaces = append(spaces, qm.SpaceName)
 		}
 	}
 
-	sort.Strings(projects)
-	project := ""
-	if projects[0] == projects[len(projects)-1] {
-		projectName, err := resourceNameToId("projects", path, space, apiKey, projects[0])
-		if err == nil {
-			project = projectName
-		}
-	}
-
-	return earliestDate, latestDate, project, ""
+	return earliestDate, latestDate, "", ""
 }
 
 func getQueryModel(jsonData []byte) (queryModel, error) {

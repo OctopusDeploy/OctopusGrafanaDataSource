@@ -19,15 +19,6 @@ export class ConfigEditor extends PureComponent<Props, State> {
     onOptionsChange({ ...options, jsonData });
   };
 
-  onSpaceChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onOptionsChange, options } = this.props;
-    const jsonData = {
-      ...options.jsonData,
-      spaceId: event.target.value,
-    };
-    onOptionsChange({ ...options, jsonData });
-  };
-
   // Secure field (only sent to the backend)
   onAPIKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
@@ -81,17 +72,6 @@ export class ConfigEditor extends PureComponent<Props, State> {
           />
         </div>
 
-        <div className="gf-form">
-          <FormField
-            label="Space Id"
-            labelWidth={6}
-            inputWidth={20}
-            onChange={this.onSpaceChange}
-            value={jsonData.spaceId || ''}
-            placeholder="Space-##"
-          />
-        </div>
-
         <div className="gf-form-inline">
           <div className="gf-form">
             <SecretFormField
@@ -105,17 +85,6 @@ export class ConfigEditor extends PureComponent<Props, State> {
               onChange={this.onAPIKeyChange}
             />
           </div>
-        </div>
-
-        <div className="gf-form">
-          <FormField
-            label="Bucket (sec)"
-            labelWidth={6}
-            inputWidth={20}
-            onChange={this.onBucketChanged}
-            value={jsonData.bucketDuration || ''}
-            placeholder="60"
-          />
         </div>
       </div>
     );

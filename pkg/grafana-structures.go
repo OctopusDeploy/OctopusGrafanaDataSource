@@ -1,6 +1,7 @@
 package main
 
 type queryModel struct {
+	SpaceName                  string `json:"spaceName"`
 	ProjectName                string `json:"projectName"`
 	TenantName                 string `json:"tenantName"`
 	EnvironmentName            string `json:"environmentName"`
@@ -20,7 +21,6 @@ type queryModel struct {
 
 type datasourceModel struct {
 	Server         string
-	SpaceId        string
 	BucketDuration string
 	Format         string
 }
