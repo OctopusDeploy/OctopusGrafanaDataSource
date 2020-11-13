@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func slugify(value string) string {
@@ -39,4 +40,30 @@ func resourceNameToId(resourceType string, path string, space string, apiKey str
 	}
 
 	return "", err
+}
+
+// getTimeToSuccess will match failed deployments, find the next successful deployment
+// and return the time between the two deployments. It returns 0 for successful deployments,
+// or failed deployments that have not been followed by a successful deployment.
+func getTimeToSuccess(deployment Deployment, deployments []Deployment, index int) uint32 {
+	// If this task was a failure, scan forward to the next success
+	if deployment.TaskState == "Failed" {
+		for index2 := index + 1; index2 < len(deployments); index2++ {
+			d2 := deployments[index2]
+			if d2.TaskState == "Success" &&
+				d2.ChannelId == deployment.ChannelId &&
+				d2.EnvironmentId == deployment.EnvironmentId &&
+				d2.ProjectId == deployment.ProjectId &&
+				d2.TenantId == deployment.TenantId {
+				timeToRecovery2, err := dateDiff(
+					d2.CompletedTime,
+					deployment.CompletedTime)
+				if err == nil {
+					return uint32(timeToRecovery2 / time.Minute)
+				}
+			}
+		}
+	}
+
+	return 0
 }
