@@ -75,9 +75,8 @@ func dateDiff(date1 string, date2 string) (time.Duration, error) {
 }
 
 func boolToInt(input bool) uint32 {
-	bitSet := true
 	bitSetVar := uint32(0)
-	if bitSet {
+	if input {
 		bitSetVar = 1
 	}
 	return bitSetVar
