@@ -139,7 +139,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		if qm.Format == "table" {
 			response.Responses[q.RefID] = td.queryTable(ctx, q, *data[qm.SpaceName])
 		} else if qm.Format == "timeseries" {
-			response.Responses[q.RefID] = td.query(ctx, q, *data[qm.SpaceName], server, qm.SpaceName, apiKey)
+			response.Responses[q.RefID] = td.query(ctx, q, *data[qm.SpaceName], server, qm.SpaceName, spaces, apiKey)
 		} else {
 			response.Responses[q.RefID], _ = td.queryResources(qm.Format, spaces[qm.SpaceName], ctx, req)
 		}

@@ -27,7 +27,7 @@ func setCompletedTimeRounded(deployments Deployments, bucketDuration time.Durati
 
 // query generates a time series response, combining deployment information into time buckets
 // that can be displayed in a graph.
-func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, server string, space string, apiKey string) backend.DataResponse {
+func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, server string, space string, spaces map[string]string, apiKey string) backend.DataResponse {
 	response := backend.DataResponse{}
 
 	// Unmarshal the json into our queryModel
@@ -85,7 +85,7 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 						// get the cycle time, or the time from when the release was created.
 						// note we can only get this information if the release is still in the database, as the release creation
 						// date is not stored by the reporting endpoint
-						releaseDetails, err := getRelease(d.ReleaseId, server, space, apiKey)
+						releaseDetails, err := getRelease(d.ReleaseId, server, spaces[space], apiKey)
 
 						if err == nil {
 							diff := parseTime(d.CompletedTime).Sub(releaseDetails.AssembledDate).Seconds()
