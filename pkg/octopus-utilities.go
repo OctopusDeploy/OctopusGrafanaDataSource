@@ -70,7 +70,7 @@ func resourceNameToId(resourceType string, path string, space string, apiKey str
 func getAllResources(resourceType string, server string, space string, apiKey string) (map[string]string, error) {
 	var url string
 
-	if !empty(space) {
+	if !empty(space) && resourceType != "spaces" {
 		url = server + "/api/" + space + "/" + resourceType + "/all"
 	} else {
 		url = server + "/api/" + resourceType + "/all"
