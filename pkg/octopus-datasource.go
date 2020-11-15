@@ -90,8 +90,24 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 
 	// get a mapping of space names to ids
 	spaces, err := getAllResources("spaces", server, "", apiKey)
-	projects, _ := getAllResources("projects", server, "", apiKey)
-	environments, _ := getAllResources("environments", server, "", apiKey)
+
+	// get the projects and environments for the queried spaces
+	projectsMap := map[string]map[string]string{}
+	environmentsMap := map[string]map[string]string{}
+	for i := 0; i < len(req.Queries); i++ {
+		var qm queryModel
+		json.Unmarshal(req.Queries[i].JSON, &qm)
+
+		if _, ok := projectsMap[qm.SpaceName]; !ok {
+			projects, _ := getAllResources("projects", server, spaces[qm.SpaceName], apiKey)
+			projectsMap[qm.SpaceName] = projects
+		}
+
+		if _, ok := environmentsMap[qm.SpaceName]; !ok {
+			environments, _ := getAllResources("environments", server, spaces[qm.SpaceName], apiKey)
+			environmentsMap[qm.SpaceName] = environments
+		}
+	}
 
 	if err != nil {
 		return nil, err
@@ -117,11 +133,11 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 						"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
 				}
 
-				if val, ok := projects[qm.ProjectName]; ok && !empty(qm.ProjectName) {
+				if val, ok := projectsMap[qm.SpaceName][qm.ProjectName]; ok && !empty(qm.ProjectName) {
 					query += "&projectId=" + url.QueryEscape(val)
 				}
 
-				if val, ok := environments[qm.EnvironmentName]; ok && !empty(qm.EnvironmentName) {
+				if val, ok := environmentsMap[qm.SpaceName][qm.EnvironmentName]; ok && !empty(qm.EnvironmentName) {
 					query += "&environmentId=" + url.QueryEscape(val)
 				}
 
