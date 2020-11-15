@@ -181,11 +181,11 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	}
 
 	if qm.TotalCycleTimeField {
-		frame.Fields = append(frame.Fields, data.NewField("totalDeploymentLeadTime", nil, totalCycleTime))
+		frame.Fields = append(frame.Fields, data.NewField("totalReleaseLeadTime", nil, totalCycleTime))
 	}
 
 	if qm.AverageCycleTimeField {
-		frame.Fields = append(frame.Fields, data.NewField("avgDeploymentLeadTime", nil, avgCycleTime))
+		frame.Fields = append(frame.Fields, data.NewField("avgReleaseLeadTime", nil, avgCycleTime))
 	}
 
 	// add the frames to the response
