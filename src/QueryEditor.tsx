@@ -153,7 +153,7 @@ export class QueryEditor extends PureComponent<Props> {
       {value: "environments", label: "environments table"},
       {value: "tenants", label: "tenants table"},
       {value: "channels", label: "channels table"},
-      {value: "projects", label: "environments table"}];
+      {value: "projects", label: "projects table"}];
 
     return (
       <div className="gf-form" style={{flexDirection: "column"}}>

@@ -6,7 +6,7 @@
   "backend": true,
   "executable": "gpx_xmlfeed",
   "info": {
-    "description": "Backend datasource to connect to an Octopus XML feed",
+    "description": "Backend datasource to connect to an Octopus XML reporting feed",
     "author": {
       "name": "Matthew Casperson",
       "url": ""
