@@ -91,6 +91,16 @@ export class QueryEditor extends PureComponent<Props> {
     onChange({...query, averageTimeToRecoveryField: event.target.checked});
   };
 
+  onTotalCycleTimeFieldSwitchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const {onChange, query} = this.props;
+    onChange({...query, totalCycleTimeField: event.target.checked});
+  };
+
+  onAverageCycleTimeFieldSwitchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const {onChange, query} = this.props;
+    onChange({...query, averageCycleTimeField: event.target.checked});
+  };
+
   render() {
     const query = defaults(this.props.query, defaultQuery);
     const {
@@ -109,11 +119,37 @@ export class QueryEditor extends PureComponent<Props> {
       totalDurationField,
       averageDurationField,
       totalTimeToRecoveryField,
-      averageTimeToRecoveryField
+      averageTimeToRecoveryField,
+      totalCycleTimeField,
+      averageCycleTimeField
     } = query;
     const formatOptions = [
       {value: "timeseries", label: "deployments time series"},
       {value: "table", label: "deployments table"},
+      {value: "accounts", label: "accounts table"},
+      {value: "actiontemplates", label: "action templates table"},
+      {value: "certificates", label: "certificates table"},
+      {value: "feeds", label: "feeds table"},
+      {value: "libraryvariablesets", label: "library variable sets table"},
+      {value: "machinepolicies", label: "machine policies table"},
+      {value: "machineroles", label: "machine roles table"},
+      {value: "machines", label: "targets table"},
+      {value: "octopusservernodes", label: "octopus server nodes table"},
+      {value: "permissions", label: "permissions table"},
+      {value: "projectgroups", label: "project groups table"},
+      {value: "proxies", label: "proxies table"},
+      {value: "releases", label: "releases table"},
+      {value: "runbooks", label: "runbooks table"},
+      {value: "spaces", label: "spaces table"},
+      {value: "subscriptions", label: "subscriptions table"},
+      {value: "tagsets", label: "tag sets table"},
+      {value: "teams", label: "teams table"},
+      {value: "tenantvariables", label: "tenant variables table"},
+      {value: "roles", label: "roles table"},
+      {value: "users", label: "users table"},
+      {value: "variables", label: "variable sets table"},
+      {value: "workerpools", label: "worker pools table"},
+      {value: "workers", label: "workers table"},
       {value: "environments", label: "environments table"},
       {value: "tenants", label: "tenants table"},
       {value: "channels", label: "channels table"},
@@ -133,7 +169,7 @@ export class QueryEditor extends PureComponent<Props> {
           labelWidth={20}
           value={spaceName || ''}
           onChange={this.onSpaceNameTextChange}
-          label="Space Name"
+          label="Space Name Filter"
         />
         {(format == "timeseries" || format == "table") &&
         <div>
@@ -141,42 +177,42 @@ export class QueryEditor extends PureComponent<Props> {
             labelWidth={20}
             value={projectName || ''}
             onChange={this.onProjectNameTextChange}
-            label="Project Name"
+            label="Project Name Filter"
           />
           <FormField
             labelWidth={20}
             value={environmentName || ''}
             onChange={this.onEnvironmentNameTextChange}
-            label="Environment Name"
+            label="Environment Name Filter"
           />
           <FormField
             labelWidth={20}
             value={channelName || ''}
             onChange={this.onChannelNameTextChange}
-            label="Channel Name"
+            label="Channel Name Filter"
           />
           <FormField
             labelWidth={20}
             value={tenantName || ''}
             onChange={this.onTenantNameTextChange}
-            label="Tenant Name"
+            label="Tenant Name Filter"
           />
           <FormField
             labelWidth={20}
             value={releaseVersion || ''}
             onChange={this.onReleaseVersionTextChange}
-            label="Release Version"
+            label="Release Version Filter"
           />
           <FormField
             labelWidth={20}
             value={taskState || ''}
             onChange={this.onTaskSTateTextChange}
-            label="Task State"
+            label="Task State Filter"
           />
           {format == "timeseries" &&
           <div>
             <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-              <InlineFormLabel width={20}>Success field</InlineFormLabel>
+              <InlineFormLabel width={20}>Return Success Field</InlineFormLabel>
               <Switch
                 css="css"
                 value={successField == null ? true : successField}
@@ -184,7 +220,7 @@ export class QueryEditor extends PureComponent<Props> {
               />
             </div>
             <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-              <InlineFormLabel width={20}>Failure field</InlineFormLabel>
+              <InlineFormLabel width={20}>Return Failure Field</InlineFormLabel>
               <Switch
                 css="css"
                 value={failureField == null ? true : failureField}
@@ -192,7 +228,7 @@ export class QueryEditor extends PureComponent<Props> {
               />
             </div>
             <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-              <InlineFormLabel width={20}>Cancelled field</InlineFormLabel>
+              <InlineFormLabel width={20}>Return Cancelled Field</InlineFormLabel>
               <Switch
                 css="css"
                 value={cancelledField == null ? true : cancelledField}
@@ -200,7 +236,7 @@ export class QueryEditor extends PureComponent<Props> {
               />
             </div>
             <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-              <InlineFormLabel width={20}>Timed Out field</InlineFormLabel>
+              <InlineFormLabel width={20}>Return Timed Out Field</InlineFormLabel>
               <Switch
                 css="css"
                 value={timedOutField == null ? true : timedOutField}
@@ -208,7 +244,7 @@ export class QueryEditor extends PureComponent<Props> {
               />
             </div>
             <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-              <InlineFormLabel width={20}>Total Duration Field</InlineFormLabel>
+              <InlineFormLabel width={20}>Return Total Duration Field</InlineFormLabel>
               <Switch
                 css="css"
                 value={totalDurationField == null ? true : totalDurationField}
@@ -216,7 +252,7 @@ export class QueryEditor extends PureComponent<Props> {
               />
             </div>
             <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-              <InlineFormLabel width={20}>Average Duration Field</InlineFormLabel>
+              <InlineFormLabel width={20}>Return Average Duration Field</InlineFormLabel>
               <Switch
                 css="css"
                 value={averageDurationField == null ? true : averageDurationField}
@@ -224,7 +260,7 @@ export class QueryEditor extends PureComponent<Props> {
               />
             </div>
             <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-              <InlineFormLabel width={20}>Total Time To Recovery Field</InlineFormLabel>
+              <InlineFormLabel width={20}>Return Total Time To Recovery Field</InlineFormLabel>
               <Switch
                 css="css"
                 value={totalTimeToRecoveryField == null ? true : totalTimeToRecoveryField}
@@ -232,11 +268,31 @@ export class QueryEditor extends PureComponent<Props> {
               />
             </div>
             <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
-              <InlineFormLabel width={20}>Average Time To Recovery Field</InlineFormLabel>
+              <InlineFormLabel width={20}>Return Average Time To Recovery Field</InlineFormLabel>
               <Switch
                 css="css"
                 value={averageTimeToRecoveryField == null ? true : averageTimeToRecoveryField}
                 onChange={this.onAverageTimeToRecoveryFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "column"}}>
+              <div>Enabling the fields below will significantly increase the query time.</div>
+              <div>Note that these values can only be calculated if the release is still available in the Octopus database and has not been cleaned up as part of a retention policy.</div>
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Return Total Cycle Time Field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={totalCycleTimeField == null ? true : totalCycleTimeField}
+                onChange={this.onTotalCycleTimeFieldSwitchChange}
+              />
+            </div>
+            <div style={{alignContent: "flex-start", flexWrap: "wrap", display: "flex", flexDirection: "row"}}>
+              <InlineFormLabel width={20}>Return Average Cycle Time Field</InlineFormLabel>
+              <Switch
+                css="css"
+                value={averageCycleTimeField == null ? true : averageCycleTimeField}
+                onChange={this.onAverageCycleTimeFieldSwitchChange}
               />
             </div>
           </div>}

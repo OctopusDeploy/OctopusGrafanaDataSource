@@ -14,12 +14,12 @@ func TestConnection(t *testing.T) {
 	request := backend.QueryDataRequest{
 		PluginContext: backend.PluginContext{
 			DataSourceInstanceSettings: &backend.DataSourceInstanceSettings{
-				JSONData:                []byte("{\"Server\": \"" + os.Getenv("SERVER") + "\", \"SpaceId\": \"" + os.Getenv("SPACE") + "\", \"BucketDuration\": 60}"),
+				JSONData:                []byte("{\"Server\": \"" + os.Getenv("SERVER") + "\"}"),
 				DecryptedSecureJSONData: map[string]string{"apiKey": os.Getenv("APIKEY")},
 			},
 		},
 		Queries: []backend.DataQuery{backend.DataQuery{
-			JSON: []byte("{\"projectName\": \"Octopus Server\", \"environmentName\": \"Production\", \"averageTimeToRecoveryField\": true}"),
+			JSON: []byte("{\"format\": \"timeseries\", \"projectName\": \"Octopus Server\", \"environmentName\": \"Production\", \"averageTimeToRecoveryField\": true, \"totalCycleTimeField\": true, \"averageCycleTimeField\": true}"),
 			TimeRange: struct {
 				From time.Time
 				To   time.Time

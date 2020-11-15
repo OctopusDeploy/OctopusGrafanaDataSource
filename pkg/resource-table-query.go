@@ -7,7 +7,7 @@ import (
 )
 
 func (td *SampleDatasource) queryResources(resourceType string, space string, ctx context.Context, req *backend.QueryDataRequest) (backend.DataResponse, error) {
-	server, apiKey, _ := getConnectionDetails(req.PluginContext)
+	server, apiKey := getConnectionDetails(req.PluginContext)
 	entities, err := getAllResources(resourceType, server, space, apiKey)
 	if err != nil {
 		return backend.DataResponse{}, err

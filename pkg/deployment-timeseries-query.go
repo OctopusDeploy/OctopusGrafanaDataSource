@@ -8,13 +8,17 @@ import (
 )
 
 func getBucketDuration(queryDuration time.Duration, bucketDuration time.Duration) (int64, time.Duration) {
-	buckets := Min(maxFrames, int64(queryDuration/bucketDuration))
+	fixedDuration := time.Duration(60)
+	if bucketDuration != 0 {
+		fixedDuration = bucketDuration
+	}
+	buckets := Min(maxFrames, int64(queryDuration/fixedDuration))
 	return buckets, queryDuration / time.Duration(buckets)
 }
 
 func setCompletedTimeRounded(deployments Deployments, bucketDuration time.Duration) {
 	for i := 0; i < len(deployments.Deployments); i++ {
-		time, err := time.Parse(dateFormat, deployments.Deployments[i].CompletedTime)
+		time, err := time.Parse(releaseHistoryDateFormat, deployments.Deployments[i].CompletedTime)
 		if err == nil {
 			deployments.Deployments[i].CompetedTimeRounded = time.Round(bucketDuration)
 		}
@@ -23,7 +27,7 @@ func setCompletedTimeRounded(deployments Deployments, bucketDuration time.Durati
 
 // query generates a time series response, combining deployment information into time buckets
 // that can be displayed in a graph.
-func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, requestedBucketDuration time.Duration) backend.DataResponse {
+func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, deployments Deployments, server string, space string, apiKey string) backend.DataResponse {
 	response := backend.DataResponse{}
 
 	// Unmarshal the json into our queryModel
@@ -45,9 +49,11 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	timedOut := []uint32{}
 	totalTimeToRecovery := []uint32{}
 	avgTimeToRecovery := []uint32{}
+	totalCycleTime := []uint32{}
+	avgCycleTime := []uint32{}
 
 	// Work out how long the buckets should be
-	buckets, bucketDuration := getBucketDuration(query.TimeRange.Duration(), requestedBucketDuration)
+	buckets, bucketDuration := getBucketDuration(query.TimeRange.Duration(), query.Interval)
 
 	// get the bucket start time for each deployment
 	setCompletedTimeRounded(deployments, bucketDuration)
@@ -55,6 +61,7 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	for i := 0; i < int(buckets); i++ {
 		bucketTotalTime := []uint32{}
 		bucketTimeToRecovery := []uint32{}
+		bucketCycleTime := []uint32{}
 
 		// Get the time that starts this bucket
 		roundedTime := query.TimeRange.From.Add(bucketDuration * time.Duration(i)).Round(bucketDuration)
@@ -70,6 +77,22 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 				// Make sure the deployment matches the query filters, and the deployment
 				// completion time matches the start of this time bucket
 				if includeDeployment(&qm, &d) && d.CompetedTimeRounded.Equal(roundedTime) {
+
+					thisCycleTime := uint32(0)
+
+					// Don't make the extra API calls if we don't need to
+					if qm.AverageCycleTimeField || qm.TotalCycleTimeField {
+						// get the cycle time, or the time from when the release was created.
+						// note we can only get this information if the release is still in the database, as the release creation
+						// date is not stored by the reporting endpoint
+						releaseDetails, err := getRelease(d.ReleaseId, server, space, apiKey)
+
+						if err == nil {
+							diff := parseTime(d.CompletedTime).Sub(releaseDetails.AssembledDate).Seconds()
+							bucketCycleTime = append(bucketCycleTime, uint32(diff))
+							thisCycleTime = uint32(diff)
+						}
+					}
 
 					count++
 
@@ -88,6 +111,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 						avgDuration[len(avgDuration)-1] = arrayAverage(bucketTotalTime)
 						totalTimeToRecovery[len(totalTimeToRecovery)-1] += thisTimeToRecovery
 						avgTimeToRecovery[len(avgTimeToRecovery)-1] = arrayAverageDurationIgnoreZero(bucketTimeToRecovery)
+						avgCycleTime[len(avgCycleTime)-1] = arrayAverageDurationIgnoreZero(bucketCycleTime)
+						totalCycleTime[len(totalCycleTime)-1] += thisCycleTime
 					} else {
 						times = append(times, roundedTime)
 						success = append(success, boolToInt(d.TaskState == "Success"))
@@ -98,6 +123,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 						totalDuration = append(totalDuration, d.DurationSeconds)
 						totalTimeToRecovery = append(totalTimeToRecovery, thisTimeToRecovery)
 						avgTimeToRecovery = append(avgTimeToRecovery, thisTimeToRecovery)
+						avgCycleTime = append(avgCycleTime, thisCycleTime)
+						totalCycleTime = append(totalCycleTime, thisCycleTime)
 					}
 				}
 			}
@@ -113,6 +140,8 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 				totalDuration = append(totalDuration, 0)
 				totalTimeToRecovery = append(totalTimeToRecovery, 0)
 				avgTimeToRecovery = append(avgTimeToRecovery, 0)
+				avgCycleTime = append(avgCycleTime, 0)
+				totalCycleTime = append(totalCycleTime, 0)
 			}
 		}
 	}
@@ -144,11 +173,19 @@ func (td *SampleDatasource) query(ctx context.Context, query backend.DataQuery, 
 	}
 
 	if qm.TotalTimeToRecoveryField {
-		frame.Fields = append(frame.Fields, data.NewField("totalTimToRecovery", nil, totalTimeToRecovery))
+		frame.Fields = append(frame.Fields, data.NewField("totalTimeToRecovery", nil, totalTimeToRecovery))
 	}
 
 	if qm.AverageTimeToRecoveryField {
 		frame.Fields = append(frame.Fields, data.NewField("avgTimeToRecovery", nil, avgTimeToRecovery))
+	}
+
+	if qm.TotalCycleTimeField {
+		frame.Fields = append(frame.Fields, data.NewField("totalCycleTime", nil, totalCycleTime))
+	}
+
+	if qm.AverageCycleTimeField {
+		frame.Fields = append(frame.Fields, data.NewField("avgCycleTime", nil, avgCycleTime))
 	}
 
 	// add the frames to the response

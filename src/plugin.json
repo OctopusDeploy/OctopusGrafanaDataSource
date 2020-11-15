@@ -1,6 +1,6 @@
 {
   "type": "datasource",
-  "name": "xmlfeed",
+  "name": "Octopus Deploy",
   "id": "octopus-deploy-xmlfeed",
   "metrics": true,
   "backend": true,

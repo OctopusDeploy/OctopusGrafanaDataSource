@@ -41,11 +41,11 @@ type SampleDatasource struct {
 	im instancemgmt.InstanceManager
 }
 
-func getConnectionDetails(context backend.PluginContext) (string, string, time.Duration) {
+func getConnectionDetails(context backend.PluginContext) (string, string) {
 	var jsonData datasourceModel
 	json.Unmarshal(context.DataSourceInstanceSettings.JSONData, &jsonData)
 	apiKey := context.DataSourceInstanceSettings.DecryptedSecureJSONData["apiKey"]
-	return jsonData.Server, apiKey, time.Duration(60)
+	return jsonData.Server, apiKey
 }
 
 func getDeploymentHistory(server string, spaceId string, apiKey string, earliestDate time.Time, latestDate time.Time) (Deployments, error) {
@@ -72,7 +72,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 	// create response struct
 	response := backend.NewQueryDataResponse()
 
-	server, apiKey, bucketDuration := getConnectionDetails(req.PluginContext)
+	server, apiKey := getConnectionDetails(req.PluginContext)
 
 	earliestDate, latestDate, _, _ := getQueryDetails(req, server, apiKey)
 
@@ -103,9 +103,17 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		if qm.Format == "table" || qm.Format == "timeseries" {
 			// query each space once
 			if _, ok := data[qm.SpaceName]; !ok {
-				query := server + "/api/" + spaces[qm.SpaceName] + "/reporting/deployments/xml?apikey=" + apiKey +
-					"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
-					"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+				query := ""
+
+				if empty(spaces[qm.SpaceName]) {
+					query = server + "/api/reporting/deployments/xml?apikey=" + apiKey +
+						"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+						"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+				} else {
+					query = server + "/api/" + spaces[qm.SpaceName] + "/reporting/deployments/xml?apikey=" + apiKey +
+						"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+						"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+				}
 
 				xmlData, err := createRequest(query, apiKey)
 				if err == nil {
@@ -129,9 +137,9 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		}
 
 		if qm.Format == "table" {
-			response.Responses[q.RefID] = td.queryTable(ctx, q, *data[qm.SpaceName], bucketDuration)
+			response.Responses[q.RefID] = td.queryTable(ctx, q, *data[qm.SpaceName])
 		} else if qm.Format == "timeseries" {
-			response.Responses[q.RefID] = td.query(ctx, q, *data[qm.SpaceName], bucketDuration)
+			response.Responses[q.RefID] = td.query(ctx, q, *data[qm.SpaceName], server, qm.SpaceName, apiKey)
 		} else {
 			response.Responses[q.RefID], _ = td.queryResources(qm.Format, spaces[qm.SpaceName], ctx, req)
 		}
@@ -147,7 +155,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 func (td *SampleDatasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
 	log.DefaultLogger.Info("CheckHealth")
 
-	path, apiKey, _ := getConnectionDetails(req.PluginContext)
+	path, apiKey := getConnectionDetails(req.PluginContext)
 
 	_, err := createRequest(path+"/api", apiKey)
 

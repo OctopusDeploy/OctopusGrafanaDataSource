@@ -17,6 +17,8 @@ type queryModel struct {
 	AverageDurationField       bool   `json:"averageDurationField"`
 	TotalTimeToRecoveryField   bool   `json:"totalTimeToRecoveryField"`
 	AverageTimeToRecoveryField bool   `json:"averageTimeToRecoveryField"`
+	TotalCycleTimeField        bool   `json:"totalCycleTimeField"`
+	AverageCycleTimeField      bool   `json:"averageCycleTimeField"`
 }
 
 type datasourceModel struct {

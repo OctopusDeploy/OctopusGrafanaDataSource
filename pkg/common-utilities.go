@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-const dateFormat = "2006-01-02T15:04:05"
+const releaseHistoryDateFormat = "2006-01-02T15:04:05"
+const dateFormat = "2006-01-02T15:04:05.000-07:00"
 
 func Min(x, y int64) int64 {
 	if x < y {
@@ -23,8 +24,8 @@ func MinInt(x, y int) int {
 }
 
 func parseTime(timeString string) time.Time {
-	parsedTime, err := time.Parse(dateFormat, timeString)
-	if err != nil {
+	parsedTime, err := time.Parse(releaseHistoryDateFormat, timeString)
+	if err == nil {
 		return parsedTime
 	}
 	return time.Time{}
@@ -64,8 +65,8 @@ func empty(s string) bool {
 }
 
 func dateDiff(date1 string, date2 string) (time.Duration, error) {
-	date1Parsed, err1 := time.Parse(dateFormat, date1)
-	date2Parsed, err2 := time.Parse(dateFormat, date2)
+	date1Parsed, err1 := time.Parse(releaseHistoryDateFormat, date1)
+	date2Parsed, err2 := time.Parse(releaseHistoryDateFormat, date2)
 
 	if err1 == nil && err2 == nil {
 		return date1Parsed.Sub(date2Parsed), nil

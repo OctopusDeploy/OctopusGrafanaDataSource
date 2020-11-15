@@ -10,6 +10,13 @@ type IdResource struct {
 	Id   string `json:Id`
 }
 
+type Release struct {
+	Name          string `json:Name`
+	Id            string `json:Id`
+	Assembled     string `json:Assembled`
+	AssembledDate time.Time
+}
+
 type Deployments struct {
 	XMLName     xml.Name     `xml:"Deployments"`
 	Deployments []Deployment `xml:"Deployment"`

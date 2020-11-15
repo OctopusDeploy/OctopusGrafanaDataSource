@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -34,6 +36,10 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 {
+		return nil, errors.New("Response code was " + strconv.Itoa(resp.StatusCode))
+	}
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -60,13 +66,14 @@ func resourceNameToId(resourceType string, path string, space string, apiKey str
 	return "", err
 }
 
-func getAllResources(resourceType string, path string, space string, apiKey string) (map[string]string, error) {
+// getAllResources calls the "all" API endpoint to return all available resources in a name to id map
+func getAllResources(resourceType string, server string, space string, apiKey string) (map[string]string, error) {
 	var url string
 
 	if empty(space) {
-		url = path + "/api/" + space + "/" + resourceType + "/all"
+		url = server + "/api/" + space + "/" + resourceType + "/all"
 	} else {
-		url = path + "/api/" + resourceType + "/all"
+		url = server + "/api/" + resourceType + "/all"
 	}
 
 	body, err := createRequest(url, apiKey)
@@ -86,6 +93,35 @@ func getAllResources(resourceType string, path string, space string, apiKey stri
 	}
 
 	return nil, err
+}
+
+// getRelease returns the details of a specific release
+func getRelease(releaseId string, server string, space string, apiKey string) (Release, error) {
+	var url string
+
+	if !empty(space) {
+		url = server + "/api/" + space + "/releases/" + releaseId
+	} else {
+		url = server + "/api/releases/" + releaseId
+	}
+
+	body, err := createRequest(url, apiKey)
+	if err != nil {
+		return Release{}, err
+	}
+
+	var parsedResults Release
+	err = json.Unmarshal(body, &parsedResults)
+
+	if err == nil {
+		time, err := time.Parse(dateFormat, parsedResults.Assembled)
+		if err == nil {
+			parsedResults.AssembledDate = time
+		}
+		return parsedResults, nil
+	}
+
+	return Release{}, err
 }
 
 // getTimeToSuccess will match failed deployments, find the next successful deployment

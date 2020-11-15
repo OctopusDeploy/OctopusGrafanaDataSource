@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (td *SampleDatasource) queryTable(ctx context.Context, query backend.DataQuery, deployments Deployments, bucketDuration time.Duration) backend.DataResponse {
+func (td *SampleDatasource) queryTable(ctx context.Context, query backend.DataQuery, deployments Deployments) backend.DataResponse {
 	// Unmarshal the json into our queryModel
 	var qm queryModel
 

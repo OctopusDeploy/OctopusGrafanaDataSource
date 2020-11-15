@@ -17,6 +17,8 @@ export interface MyQuery extends DataQuery {
   averageDurationField: boolean;
   totalTimeToRecoveryField: boolean;
   averageTimeToRecoveryField: boolean;
+  totalCycleTimeField: boolean;
+  averageCycleTimeField: boolean;
 }
 
 export const defaultQuery: Partial<MyQuery> = {
