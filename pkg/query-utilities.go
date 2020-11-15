@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-func getQueryDetails(req *backend.QueryDataRequest, path string, apiKey string) (time.Time, time.Time, string, string) {
+// getQueryDetails returns the dates that we need to query Octopus for
+func getQueryDetails(req *backend.QueryDataRequest) (time.Time, time.Time) {
 	earliestDate := time.Time{}
 	latestDate := time.Time{}
 	projects := []string{}
@@ -33,7 +34,7 @@ func getQueryDetails(req *backend.QueryDataRequest, path string, apiKey string) 
 		}
 	}
 
-	return earliestDate, latestDate, "", ""
+	return earliestDate, latestDate
 }
 
 func getQueryModel(jsonData []byte) (queryModel, error) {

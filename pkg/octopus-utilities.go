@@ -48,24 +48,6 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 	return body, nil
 }
 
-func resourceNameToId(resourceType string, path string, space string, apiKey string, resourceName string) (string, error) {
-	url := path + "/api/" + space + "/" + resourceType + "/" + slugify(resourceName) + "?apikey=" + apiKey
-
-	body, err := createRequest(url, apiKey)
-	if err != nil {
-		return "", err
-	}
-
-	parsedResults := IdResource{}
-	err = json.Unmarshal(body, &parsedResults)
-
-	if err == nil {
-		return parsedResults.Id, nil
-	}
-
-	return "", err
-}
-
 // getAllResources calls the "all" API endpoint to return all available resources in a name to id map
 func getAllResources(resourceType string, server string, space string, apiKey string) (map[string]string, error) {
 	var url string

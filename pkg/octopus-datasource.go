@@ -74,7 +74,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 
 	server, apiKey := getConnectionDetails(req.PluginContext)
 
-	earliestDate, latestDate, _, _ := getQueryDetails(req, server, apiKey)
+	earliestDate, latestDate := getQueryDetails(req)
 
 	data := make(map[string]*Deployments)
 
@@ -90,6 +90,8 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 
 	// get a mapping of space names to ids
 	spaces, err := getAllResources("spaces", server, "", apiKey)
+	projects, _ := getAllResources("projects", server, "", apiKey)
+	environments, _ := getAllResources("environments", server, "", apiKey)
 
 	if err != nil {
 		return nil, err
@@ -106,13 +108,21 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 				query := ""
 
 				if empty(spaces[qm.SpaceName]) {
-					query = server + "/api/reporting/deployments/xml?apikey=" + apiKey +
-						"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+					query = server + "/api/reporting/deployments/xml?" +
+						"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
 						"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
 				} else {
-					query = server + "/api/" + spaces[qm.SpaceName] + "/reporting/deployments/xml?apikey=" + apiKey +
-						"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+					query = server + "/api/" + spaces[qm.SpaceName] + "/reporting/deployments/xml?" +
+						"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
 						"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+				}
+
+				if val, ok := projects[qm.ProjectName]; ok && !empty(qm.ProjectName) {
+					query += "&projectId=" + url.QueryEscape(val)
+				}
+
+				if val, ok := environments[qm.EnvironmentName]; ok && !empty(qm.EnvironmentName) {
+					query += "&environmentId=" + url.QueryEscape(val)
 				}
 
 				xmlData, err := createRequest(query, apiKey)
@@ -141,6 +151,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		} else if qm.Format == "timeseries" {
 			response.Responses[q.RefID] = td.query(ctx, q, *data[qm.SpaceName], server, qm.SpaceName, spaces, apiKey)
 		} else {
+			// Any other format is the name of a resource that has an "all" endpoint in Octopus, which we retrieve as a table
 			response.Responses[q.RefID], _ = td.queryResources(qm.Format, spaces[qm.SpaceName], ctx, req)
 		}
 	}
