@@ -1,10 +1,14 @@
 # Octopus Deploy Grafana Datasource
 
-This repo holds the source code to the Octopus Deploy Grafana datasource plugin.
+[This repo](https://github.com/OctopusDeploy/OctopusGrafanaDataSource) holds the source code to the Octopus Deploy Grafana datasource plugin.
 
 The plugin connects to the [reporting](https://octopus.com/docs/administration/reporting) endpoint at http://octopuserver/api/reporting/deployments/xml and converts the results to a time series that can be displayed in graphs, or as a table to be displayed in a grafana table.
 
 Other entities such as environments, projects, tenants etc. are also exposed as tables.
+
+# Download
+
+The plugin can be downloaded from the [GitHub Releases](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/releases) page.
 
 # Building
 
