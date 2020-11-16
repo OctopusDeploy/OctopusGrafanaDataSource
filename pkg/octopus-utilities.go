@@ -48,15 +48,17 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 	return body, nil
 }
 
+func getResourceUrl(resourceType string, server string, space string) string {
+	if !empty(space) && resourceType != "spaces" {
+		return server + "/api/" + space + "/" + resourceType + "/all"
+	} else {
+		return server + "/api/" + resourceType + "/all"
+	}
+}
+
 // getAllResources calls the "all" API endpoint to return all available resources in a name to id map
 func getAllResources(resourceType string, server string, space string, apiKey string) (map[string]string, error) {
-	var url string
-
-	if !empty(space) && resourceType != "spaces" {
-		url = server + "/api/" + space + "/" + resourceType + "/all"
-	} else {
-		url = server + "/api/" + resourceType + "/all"
-	}
+	url := getResourceUrl(resourceType, server, space)
 
 	body, err := createRequest(url, apiKey)
 	if err != nil {

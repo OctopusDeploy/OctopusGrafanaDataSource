@@ -10,7 +10,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 const octopusDateFormat = "2006-01-02 15:04:05"
@@ -48,50 +47,63 @@ func getConnectionDetails(context backend.PluginContext) (string, string) {
 	return jsonData.Server, apiKey
 }
 
-func getDeploymentHistory(server string, spaceId string, apiKey string, earliestDate time.Time, latestDate time.Time) (Deployments, error) {
-	query := server + "/api/" + spaceId + "/reporting/deployments/xml?apikey=" + apiKey +
-		"&fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
-		"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
-
-	result, err := createRequest(query, apiKey)
-	parsedResults := Deployments{}
-
-	if err != nil {
-		return parsedResults, nil
-	}
-
-	xml.Unmarshal(result, &parsedResults)
-	return parsedResults, nil
-}
-
 // QueryData handles multiple queries and returns multiple responses.
 // req contains the queries []DataQuery (where each query contains RefID as a unique identifer).
 // The QueryDataResponse contains a map of RefID to the response for each query, and each response
 // contains Frames ([]*Frame).
 func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
-	// create response struct
-	response := backend.NewQueryDataResponse()
-
 	server, apiKey := getConnectionDetails(req.PluginContext)
-
-	earliestDate, latestDate := getQueryDetails(req)
-
-	for i := 0; i < len(req.Queries); i++ {
-		if earliestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.From.Before(earliestDate) {
-			earliestDate = req.Queries[i].TimeRange.From
-		}
-
-		if latestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.To.After(latestDate) {
-			latestDate = req.Queries[i].TimeRange.To
-		}
-	}
 
 	// get a mapping of space names to ids
 	spaces, err := getAllResources("spaces", server, "", apiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// an array of parsed queries, with links back to the original backend query request, and maps of entities and data
+	// from the Octopus REST API
+	queries, data, generalEntityData, err := prepareQueries(req, server, apiKey, spaces)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use the cache of data we returned with the call to prepareQueries() to build the grafana response
+	response := td.processQueries(ctx, queries, server, apiKey, spaces, data, generalEntityData)
+
+	return response, nil
+}
+
+// processQueries converts the data returned from the Octopus REST APIs to data to be returned to grafana
+func (td *SampleDatasource) processQueries(ctx context.Context, queries []*queryModel, server string, apiKey string, spaces map[string]string, data map[string]*Deployments, generalEntityData map[string]map[string]string) (response *backend.QueryDataResponse) {
+	// create response struct
+	response = backend.NewQueryDataResponse()
+
+	// We now have a list of queries, the URLs we would use to get the data, and a map of those URLs to the results
+	// of the API requests. So we can no go ahead and build the response.
+	for _, q := range queries {
+
+		if q.Format == "table" {
+			response.Responses[q.Query.RefID] = td.queryTable(ctx, *q, *data[q.OctopusQueryUrl])
+		} else if q.Format == "timeseries" {
+			response.Responses[q.Query.RefID] = td.query(ctx, *q, q.Query, *data[q.OctopusQueryUrl], server, q.SpaceName, spaces, apiKey)
+		} else {
+			// Any other format is the name of a resource that has an "all" endpoint in Octopus, which we retrieve as a table
+			response.Responses[q.Query.RefID], _ = td.queryResources(generalEntityData[q.OctopusQueryUrl], q.Format)
+		}
+	}
+
+	return response
+}
+
+// getMaps returns a map of space names to ids, maps of space names to project names to ids, and maps of space name to environment names to ids
+func getMaps(req *backend.QueryDataRequest, server string, apiKey string) (spaces map[string]string, projectsMap map[string]map[string]string, environmentsMap map[string]map[string]string, err error) {
+	// get a mapping of space names to ids
+	spaces, err = getAllResources("spaces", server, "", apiKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	// get the projects and environments for the queried spaces
-	projectsMap := map[string]map[string]string{}
-	environmentsMap := map[string]map[string]string{}
 	for i := 0; i < len(req.Queries); i++ {
 		qm, _ := getQueryModel(req.Queries[i].JSON)
 
@@ -106,15 +118,25 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		}
 	}
 
+	return spaces, projectsMap, environmentsMap, nil
+}
+
+// prepareQueries looks through the queries, groups Octopus API calls, and returns the raw Octopus data
+func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string, spaces map[string]string) (queries []*queryModel, data map[string]*Deployments, generalEntityData map[string]map[string]string, err error) {
+	earliestDate, latestDate := getQueryDetails(req)
+
+	spaces, projectsMap, environmentsMap, err := getMaps(req, server, apiKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	// an array of parsed queries, with links back to the original backend query request
-	queries := []*queryModel{}
+	queries = []*queryModel{}
 	// A map of the Octopus query urls to the resulting deployments.
 	// This map means duplicate queries are only requested once.
-	data := make(map[string]*Deployments)
+	data = make(map[string]*Deployments)
+	// A map of the Octopus REST API "all" endpoints we want to query
+	generalEntityData = make(map[string]map[string]string)
 
 	for i := 0; i < len(req.Queries); i++ {
 		// parse the query JSON into a struct
@@ -126,7 +148,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 
 		// get the deployments for each query
 		if qm.Format == "table" || qm.Format == "timeseries" {
-
+			// the reporting endpoint is unique in that it returns XML
 			query := ""
 
 			if empty(qm.SpaceName) {
@@ -158,23 +180,20 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 					xml.Unmarshal(xmlData, data[query])
 				}
 			}
-		}
-	}
-
-	// loop over queries and execute them individually.
-	for _, q := range queries {
-
-		if q.Format == "table" {
-			response.Responses[q.Query.RefID] = td.queryTable(ctx, *q, *data[q.OctopusQueryUrl])
-		} else if q.Format == "timeseries" {
-			response.Responses[q.Query.RefID] = td.query(ctx, *q, q.Query, *data[q.OctopusQueryUrl], server, q.SpaceName, spaces, apiKey)
 		} else {
-			// Any other format is the name of a resource that has an "all" endpoint in Octopus, which we retrieve as a table
-			response.Responses[q.Query.RefID], _ = td.queryResources(q.Format, spaces[q.SpaceName], ctx, req)
+			// General entity endpoints return JSON, and can be retrieved via getAllResources()
+			url := getResourceUrl(qm.Format, server, qm.SpaceName)
+			// Each query tracks the url that would generate the data.
+			qm.OctopusQueryUrl = url
+			// Get the entities if we haven't looked them up already
+			if _, ok := generalEntityData[url]; !ok {
+				entities, _ := getAllResources(qm.Format, server, qm.SpaceName, apiKey)
+				generalEntityData[url] = entities
+			}
 		}
 	}
 
-	return response, nil
+	return queries, data, generalEntityData, nil
 }
 
 // CheckHealth handles health checks sent from Grafana to the plugin.
