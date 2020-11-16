@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import {SelectableValue} from "@grafana/data";
-import {LegacyForms} from "@grafana/ui";
-const {Select} = LegacyForms;
+import { SelectableValue } from '@grafana/data';
+import { LegacyForms } from '@grafana/ui';
+const { Select } = LegacyForms;
 
 export interface MyVariableQuery {
   spaceName: string;
@@ -17,14 +17,15 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
   const [state, setState] = useState(query);
 
   const formatOptions = [
-    {value: "spaces", label: "spaces"},
-    {value: "environments", label: "environments"},
-    {value: "tenants", label: "tenants"},
-    {value: "channels", label: "channels"},
-    {value: "projects", label: "projects"}];
+    { value: 'spaces', label: 'spaces' },
+    { value: 'environments', label: 'environments' },
+    { value: 'tenants', label: 'tenants' },
+    { value: 'channels', label: 'channels' },
+    { value: 'projects', label: 'projects' },
+  ];
 
   const saveQuery = () => {
-    onChange(state, state.entityName == "spaces" ? "spaces" : `${state.spaceName}: ${state.entityName}`);
+    onChange(state, state.entityName == 'spaces' ? 'spaces' : `${state.spaceName}: ${state.entityName}`);
   };
 
   const handleChange = (event: React.FormEvent<HTMLInputElement>) =>
@@ -36,7 +37,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
   const onEntityTextChange = (value: SelectableValue<string>) => {
     setState({
       ...state,
-      entityName: value.value || "",
+      entityName: value.value || '',
     });
   };
 
@@ -51,7 +52,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
           onBlur={saveQuery}
         />
       </div>
-      {state.entityName != "spaces" && state.entityName != "" &&
+      {state.entityName != 'spaces' && state.entityName != '' && (
         <div className="gf-form">
           <span className="gf-form-label width-10">Space Name</span>
           <input
@@ -62,7 +63,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
             value={state.spaceName}
           />
         </div>
-      }
+      )}
     </>
   );
 };

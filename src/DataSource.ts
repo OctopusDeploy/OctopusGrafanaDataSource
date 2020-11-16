@@ -1,8 +1,8 @@
-import {DataSourceInstanceSettings, MetricFindValue} from '@grafana/data';
+import { DataSourceInstanceSettings, MetricFindValue } from '@grafana/data';
 import { DataSourceWithBackend } from '@grafana/runtime';
 import { getTemplateSrv } from '@grafana/runtime';
 import { MyDataSourceOptions, MyQuery } from './types';
-import {MyVariableQuery} from "./VariableQueryEditor";
+import { MyVariableQuery } from './VariableQueryEditor';
 
 export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
@@ -27,11 +27,16 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   /**
    * Variable query action.
    */
-  async metricFindQuery(query: MyVariableQuery, options?: any) : Promise<MetricFindValue[]> {
+  async metricFindQuery(query: MyVariableQuery, options?: any): Promise<MetricFindValue[]> {
     /**
      * If query or datasource not specified
      */
-    if (!query || !options.variable.datasource || !query.entityName || (query.entityName != "spaces" && !query.spaceName)) {
+    if (
+      !query ||
+      !options.variable.datasource ||
+      !query.entityName ||
+      (query.entityName != 'spaces' && !query.spaceName)
+    ) {
       return Promise.resolve([]);
     }
 
@@ -43,30 +48,31 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
       .then(response => response.json())
       .then(data => {
         if (data) {
-          return data.map((text: string) => ({text}))
+          return data.map((text: string) => ({ text }));
         }
         return [];
       })
-      .catch(() => [])
+      .catch(() => []);
   }
 
   async getUrl(query: MyVariableQuery, options?: any) {
-    if (query.entityName == "spaces") {
+    if (query.entityName == 'spaces') {
       return `/api/datasources/${options.variable.datasource}/resources/spaces`;
     }
 
     /**
      * Get space names mapped to IDs
      */
-    const spaces = await fetch(`/api/datasources/${options.variable.datasource}/resources/spacesMapping`)
-      .then(response => response.json());
+    const spaces = await fetch(
+      `/api/datasources/${options.variable.datasource}/resources/spacesMapping`
+    ).then(response => response.json());
 
-    const spaceName = getTemplateSrv().replace(query.spaceName, options.scopedVars)
+    const spaceName = getTemplateSrv().replace(query.spaceName, options.scopedVars);
 
     if (spaces[spaceName]) {
       return `/api/datasources/${options.variable.datasource}/resources/${spaces[spaceName]}/${query.entityName}`;
     }
 
-    throw "Space could not be found"
+    throw 'Space could not be found';
   }
 }

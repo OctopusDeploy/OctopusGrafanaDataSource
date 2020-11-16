@@ -29,7 +29,7 @@ export const defaultQuery: Partial<MyQuery> = {
   totalDurationField: true,
   averageDurationField: true,
   totalTimeToRecoveryField: true,
-  averageTimeToRecoveryField: true
+  averageTimeToRecoveryField: true,
 };
 
 /**

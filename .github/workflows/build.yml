@@ -5,9 +5,14 @@ on:
     branches: [ main ]
 
 jobs:
-  test_pull_request:
+  build_deploy:
     runs-on: ubuntu-latest
     steps:
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
@@ -23,3 +28,5 @@ jobs:
         args: -v
     - run: yarn install
     - run: yarn build
+    - run: docker build -t octopussamples/grafana:latest -f ./Dockerfile ./dist
+    - run: docker push octopussamples/grafana:latest
