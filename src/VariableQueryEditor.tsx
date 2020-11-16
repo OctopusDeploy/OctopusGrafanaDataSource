@@ -24,7 +24,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
     {value: "projects", label: "projects"}];
 
   const saveQuery = () => {
-    onChange(state, `${state.spaceName}: ${state.entityName}`);
+    onChange(state, state.entityName == "spaces" ? "spaces" : `${state.spaceName}: ${state.entityName}`);
   };
 
   const handleChange = (event: React.FormEvent<HTMLInputElement>) =>

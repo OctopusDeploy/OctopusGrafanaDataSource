@@ -1,5 +1,6 @@
 import {DataSourceInstanceSettings, MetricFindValue} from '@grafana/data';
 import { DataSourceWithBackend } from '@grafana/runtime';
+import { getTemplateSrv } from '@grafana/runtime';
 import { MyDataSourceOptions, MyQuery } from './types';
 import {MyVariableQuery} from "./VariableQueryEditor";
 
@@ -22,15 +23,16 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     /**
      * Run Query
      */
-    const url = await this.getUrl(query, options);
-    return fetch(url)
+    return this.getUrl(query, options)
+      .then(url => fetch(url))
       .then(response => response.json())
       .then(data => {
         if (data) {
           return data.map((text: string) => ({text}))
         }
         return [];
-      });
+      })
+      .catch(() => [])
   }
 
   async getUrl(query: MyVariableQuery, options?: any) {
@@ -44,6 +46,12 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const spaces = await fetch(`/api/datasources/${options.variable.datasource}/resources/spacesMapping`)
       .then(response => response.json());
 
-    return `/api/datasources/${options.variable.datasource}/resources/${spaces[query.spaceName]}/${query.entityName}`;
+    const spaceName = getTemplateSrv().replace(query.spaceName, options.scopedVars)
+
+    if (spaces[spaceName]) {
+      return `/api/datasources/${options.variable.datasource}/resources/${spaces[spaceName]}/${query.entityName}`;
+    }
+
+    throw "Space could not be found"
   }
 }
