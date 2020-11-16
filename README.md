@@ -10,6 +10,25 @@ Other entities such as environments, projects, tenants etc. are also exposed as 
 
 The plugin can be downloaded from the [GitHub Releases](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/releases) page.
 
+This ZIP file is then extracted into the Grafana plugin directory (which is usually `INSTALL_DIR/data/plugins`):
+
+```
+unzip octopus_grafana_datasource.zip -d YOUR_PLUGIN_DIR/octopus
+```
+
+See the [Grafana documentation](https://grafana.com/docs/grafana/latest/plugins/installation/#install-a-packaged-plugin) for more details.
+
+# Signing
+
+This plugin is unsigned, meaning the plugin must be listed in the `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` environment variable (e.g `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=octopus-deploy-xmlfeed`) or the `allow_loading_unsigned_plugins` option in `grafana.ini` must list `octopus-deploy-xmlfeed` e.g.:
+
+```ini
+[plugins]
+allow_loading_unsigned_plugins = octopus-deploy-xmlfeed
+```
+
+See the [Grafana documentation](https://grafana.com/docs/grafana/latest/administration/configuration/#allow_loading_unsigned_plugins) for more details.
+
 # Building
 
 The following tools are required to build the plugin:
@@ -25,6 +44,10 @@ Build the plugin with:
 yarn build
 mage -v
 ```
+
+# GitHub Actions
+
+This project is built and published via [GitHub Actions](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/actions).
 
 # Docker
 
