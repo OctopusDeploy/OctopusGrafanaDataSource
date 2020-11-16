@@ -1,61 +1,41 @@
-# Grafana Data Source Backend Plugin Template
+# Octopus Deploy Grafana Datasource
 
-[![CircleCI](https://circleci.com/gh/grafana/simple-datasource-backend/tree/master.svg?style=svg)](https://circleci.com/gh/grafana/simple-datasource-backend/tree/master)
+This repo holds the source code to the Octopus Deploy Grafana datasource plugin.
 
-This template is a starting point for building Grafana Data Source Backend Plugins
+The plugin connects to the [reporting](https://octopus.com/docs/administration/reporting) endpoint at http://octopuserver/api/reporting/deployments/xml and converts the results to a time series that can be displayed in graphs, or as a table to be displayed in a grafana table.
 
-## What is Grafana Data Source Backend Plugin?
+Other entities such as environments, projects, tenants etc. are also exposed as tables.
 
-Grafana supports a wide range of data sources, including Prometheus, MySQL, and even Datadog. There’s a good chance you can already visualize metrics from the systems you have set up. In some cases, though, you already have an in-house metrics solution that you’d like to add to your Grafana dashboards. Grafana Data Source Plugins enables integrating such solutions with Grafana.
+# Building
 
-For more information about backend plugins, refer to the documentation on [Backend plugins](https://grafana.com/docs/grafana/latest/developers/plugins/backend/).
+The following tools are required to build the plugin:
 
-## Getting started
+* [Go](https://golang.org/dl/)
+* [Mage](https://magefile.org/#installation)
+* [Nodejs](https://nodejs.org/en/download/)
+* [Yarn](https://classic.yarnpkg.com/en/docs/install/#windows-stable)
 
-A data source backend plugin consists of both frontend and backend components.
+Build the plugin with:
 
-### Frontend
-
-1. Install dependencies
-```BASH
-yarn install
 ```
-
-2. Build plugin in development mode or run in watch mode
-```BASH
-yarn dev
-```
-or
-```BASH
-yarn watch
-```
-3. Build plugin in production mode
-```BASH
 yarn build
-```
-
-### Backend
-
-1. Update [Grafana plugin SDK for Go](https://grafana.com/docs/grafana/latest/developers/plugins/backend/grafana-plugin-sdk-for-go/) dependency to the latest minor version:
-
-```bash
-go get -u github.com/grafana/grafana-plugin-sdk-go
-```
-
-2. Build backend plugin binaries for Linux, Windows and Darwin:
-```BASH
 mage -v
 ```
 
-3. List all available Mage targets for additional commands:
-```BASH
-mage -l
+# Docker
+
+The plugin can be run with the Grafana Docker image with the command:
+
+```
+docker run -e "GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=octopus-deploy-xmlfeed" -d -p 3000:3000 -v "$(pwd):/var/lib/grafana/plugins" --name=grafana grafana/grafana:7.0.0
 ```
 
-## Learn more
+A docker image with the plugin already installed and the `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` setting configured can be found in [Docker Hub](https://hub.docker.com/r/octopussamples/grafana), and run with the command:
 
-- [Build a data source backend plugin tutorial](https://grafana.com/tutorials/build-a-data-source-backend-plugin)
-- [Grafana documentation](https://grafana.com/docs/)
-- [Grafana Tutorials](https://grafana.com/tutorials/) - Grafana Tutorials are step-by-step guides that help you make the most of Grafana
-- [Grafana UI Library](https://developers.grafana.com/ui) - UI components to help you build interfaces using Grafana Design System
-- [Grafana plugin SDK for Go](https://grafana.com/docs/grafana/latest/developers/plugins/backend/grafana-plugin-sdk-for-go/)
+```
+docker run -d -p 3000:3000 --name=grafana octopussamples/grafana:latest
+```
+
+# Sample Dashboard
+
+A sample dashboard displaying data returned by this plugin can be found on the [Grafana Dashboard Gallery](https://grafana.com/grafana/dashboards/13413).
