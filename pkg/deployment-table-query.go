@@ -7,17 +7,8 @@ import (
 	"time"
 )
 
-func (td *SampleDatasource) queryTable(ctx context.Context, query backend.DataQuery, deployments Deployments) backend.DataResponse {
-	// Unmarshal the json into our queryModel
-	var qm queryModel
-
+func (td *SampleDatasource) queryTable(ctx context.Context, qm queryModel, deployments Deployments) backend.DataResponse {
 	response := backend.DataResponse{}
-
-	// Unmarshal the json into our queryModel
-	qm, err := getQueryModel(query.JSON)
-	if err != nil {
-		return response
-	}
 
 	// create data frame response
 	frame := data.NewFrame("response")

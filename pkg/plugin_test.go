@@ -19,7 +19,7 @@ func TestConnection(t *testing.T) {
 			},
 		},
 		Queries: []backend.DataQuery{backend.DataQuery{
-			JSON: []byte("{\"format\": \"timeseries\", \"spaceName\": \"Octofront\", \"projectName\": \"Octofront\", \"environmentName\": \"Production\", \"averageTimeToRecoveryField\": true, \"totalCycleTimeField\": true, \"averageCycleTimeField\": true}"),
+			JSON: []byte("{\"format\": \"environments\", \"spaceName\": \"Octofront\", \"projectName\": \"Octofront\", \"environmentName\": \"Production\", \"averageTimeToRecoveryField\": true, \"totalCycleTimeField\": true, \"averageCycleTimeField\": true}"),
 			TimeRange: struct {
 				From time.Time
 				To   time.Time

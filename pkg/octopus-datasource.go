@@ -76,8 +76,6 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 
 	earliestDate, latestDate := getQueryDetails(req)
 
-	data := make(map[string]*Deployments)
-
 	for i := 0; i < len(req.Queries); i++ {
 		if earliestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.From.Before(earliestDate) {
 			earliestDate = req.Queries[i].TimeRange.From
@@ -95,8 +93,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 	projectsMap := map[string]map[string]string{}
 	environmentsMap := map[string]map[string]string{}
 	for i := 0; i < len(req.Queries); i++ {
-		var qm queryModel
-		json.Unmarshal(req.Queries[i].JSON, &qm)
+		qm, _ := getQueryModel(req.Queries[i].JSON)
 
 		if _, ok := projectsMap[qm.SpaceName]; !ok {
 			projects, _ := getAllResources("projects", server, spaces[qm.SpaceName], apiKey)
@@ -113,62 +110,67 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		return nil, err
 	}
 
+	// an array of parsed queries, with links back to the original backend query request
+	queries := []*queryModel{}
+	// A map of the Octopus query urls to the resulting deployments.
+	// This map means duplicate queries are only requested once.
+	data := make(map[string]*Deployments)
+
 	for i := 0; i < len(req.Queries); i++ {
-		var qm queryModel
-		json.Unmarshal(req.Queries[i].JSON, &qm)
+		// parse the query JSON into a struct
+		qm, _ := getQueryModel(req.Queries[i].JSON)
+		// link back to the original backend query data
+		qm.Query = req.Queries[i]
+		// we'll loop over these queries later
+		queries = append(queries, &qm)
 
-		// get the deployments for any query that requests them
+		// get the deployments for each query
 		if qm.Format == "table" || qm.Format == "timeseries" {
-			// query each space once
-			if _, ok := data[qm.SpaceName]; !ok {
-				query := ""
 
-				if empty(spaces[qm.SpaceName]) {
-					query = server + "/api/reporting/deployments/xml?" +
-						"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
-						"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
-				} else {
-					query = server + "/api/" + spaces[qm.SpaceName] + "/reporting/deployments/xml?" +
-						"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
-						"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
-				}
+			query := ""
 
-				if val, ok := projectsMap[qm.SpaceName][qm.ProjectName]; ok && !empty(qm.ProjectName) {
-					query += "&projectId=" + url.QueryEscape(val)
-				}
+			if empty(qm.SpaceName) {
+				query = server + "/api/reporting/deployments/xml?" +
+					"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+					"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+			} else {
+				query = server + "/api/" + spaces[qm.SpaceName] + "/reporting/deployments/xml?" +
+					"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+					"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+			}
 
-				if val, ok := environmentsMap[qm.SpaceName][qm.EnvironmentName]; ok && !empty(qm.EnvironmentName) {
-					query += "&environmentId=" + url.QueryEscape(val)
-				}
+			if val, ok := projectsMap[qm.SpaceName][qm.ProjectName]; ok && !empty(qm.ProjectName) {
+				query += "&projectId=" + url.QueryEscape(val)
+			}
 
+			if val, ok := environmentsMap[qm.SpaceName][qm.EnvironmentName]; ok && !empty(qm.EnvironmentName) {
+				query += "&environmentId=" + url.QueryEscape(val)
+			}
+
+			// Each query tracks the url that would generate the data.
+			qm.OctopusQueryUrl = query
+
+			// If the query url has not been accessed, hit the API to get the deployments.
+			if _, ok := data[query]; !ok {
 				xmlData, err := createRequest(query, apiKey)
 				if err == nil {
-					data[qm.SpaceName] = &Deployments{}
-					xml.Unmarshal(xmlData, data[qm.SpaceName])
+					data[query] = &Deployments{}
+					xml.Unmarshal(xmlData, data[query])
 				}
 			}
 		}
 	}
 
 	// loop over queries and execute them individually.
-	for _, q := range req.Queries {
+	for _, q := range queries {
 
-		var qm queryModel
-
-		dataResponse := backend.DataResponse{}
-
-		dataResponse.Error = json.Unmarshal(q.JSON, &qm)
-		if dataResponse.Error != nil {
-			return nil, dataResponse.Error
-		}
-
-		if qm.Format == "table" {
-			response.Responses[q.RefID] = td.queryTable(ctx, q, *data[qm.SpaceName])
-		} else if qm.Format == "timeseries" {
-			response.Responses[q.RefID] = td.query(ctx, q, *data[qm.SpaceName], server, qm.SpaceName, spaces, apiKey)
+		if q.Format == "table" {
+			response.Responses[q.Query.RefID] = td.queryTable(ctx, *q, *data[q.OctopusQueryUrl])
+		} else if q.Format == "timeseries" {
+			response.Responses[q.Query.RefID] = td.query(ctx, *q, q.Query, *data[q.OctopusQueryUrl], server, q.SpaceName, spaces, apiKey)
 		} else {
 			// Any other format is the name of a resource that has an "all" endpoint in Octopus, which we retrieve as a table
-			response.Responses[q.RefID], _ = td.queryResources(qm.Format, spaces[qm.SpaceName], ctx, req)
+			response.Responses[q.Query.RefID], _ = td.queryResources(q.Format, spaces[q.SpaceName], ctx, req)
 		}
 	}
 

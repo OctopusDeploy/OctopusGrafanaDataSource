@@ -10,9 +10,6 @@ import (
 func getQueryDetails(req *backend.QueryDataRequest) (time.Time, time.Time) {
 	earliestDate := time.Time{}
 	latestDate := time.Time{}
-	projects := []string{}
-	environments := []string{}
-	spaces := []string{}
 
 	for i := 0; i < len(req.Queries); i++ {
 		if earliestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.From.Before(earliestDate) {
@@ -21,16 +18,6 @@ func getQueryDetails(req *backend.QueryDataRequest) (time.Time, time.Time) {
 
 		if latestDate.Equal(time.Time{}) || req.Queries[i].TimeRange.To.After(latestDate) {
 			latestDate = req.Queries[i].TimeRange.To
-		}
-
-		var qm queryModel
-		response := backend.DataResponse{}
-
-		response.Error = json.Unmarshal(req.Queries[i].JSON, &qm)
-		if response.Error == nil {
-			projects = append(projects, qm.ProjectName)
-			environments = append(environments, qm.EnvironmentName)
-			spaces = append(spaces, qm.SpaceName)
 		}
 	}
 

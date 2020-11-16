@@ -1,5 +1,7 @@
 package main
 
+import "github.com/grafana/grafana-plugin-sdk-go/backend"
+
 type queryModel struct {
 	SpaceName                  string `json:"spaceName"`
 	ProjectName                string `json:"projectName"`
@@ -19,6 +21,8 @@ type queryModel struct {
 	AverageTimeToRecoveryField bool   `json:"averageTimeToRecoveryField"`
 	TotalCycleTimeField        bool   `json:"totalCycleTimeField"`
 	AverageCycleTimeField      bool   `json:"averageCycleTimeField"`
+	OctopusQueryUrl            string
+	Query                      backend.DataQuery
 }
 
 type datasourceModel struct {
