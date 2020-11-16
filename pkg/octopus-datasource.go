@@ -26,8 +26,9 @@ func newDatasource() datasource.ServeOpts {
 	}
 
 	return datasource.ServeOpts{
-		QueryDataHandler:   ds,
-		CheckHealthHandler: ds,
+		QueryDataHandler:    ds,
+		CheckHealthHandler:  ds,
+		CallResourceHandler: ds,
 	}
 }
 
@@ -96,16 +97,20 @@ func (td *SampleDatasource) processQueries(ctx context.Context, queries []*query
 	return response
 }
 
-// getMaps returns a map of space names to ids, maps of space names to project names to ids, and maps of space name to environment names to ids
-func getMaps(req *backend.QueryDataRequest, server string, apiKey string) (spaces map[string]string, projectsMap map[string]map[string]string, environmentsMap map[string]map[string]string, err error) {
-	projectsMap = make(map[string]map[string]string)
-	environmentsMap = make(map[string]map[string]string)
-
+// getSpaces returns a map of space names to ids
+func getSpaces(server string, apiKey string) (spaces map[string]string, err error) {
 	// get a mapping of space names to ids
 	spaces, err = getAllResources("spaces", server, "", apiKey)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
+	return spaces, nil
+}
+
+// getMaps returns maps of space names to project names to ids, and maps of space name to environment names to ids
+func getMaps(req *backend.QueryDataRequest, server string, apiKey string, spaces map[string]string) (projectsMap map[string]map[string]string, environmentsMap map[string]map[string]string, err error) {
+	projectsMap = make(map[string]map[string]string)
+	environmentsMap = make(map[string]map[string]string)
 
 	// get the projects and environments for the queried spaces
 	for i := 0; i < len(req.Queries); i++ {
@@ -122,14 +127,19 @@ func getMaps(req *backend.QueryDataRequest, server string, apiKey string) (space
 		}
 	}
 
-	return spaces, projectsMap, environmentsMap, nil
+	return projectsMap, environmentsMap, nil
 }
 
 // prepareQueries looks through the queries, groups Octopus API calls to improve performance and remove redundant API calls, and returns the raw Octopus data
 func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string, spaces map[string]string) (queries []*queryModel, data map[string]*Deployments, generalEntityData map[string]map[string]string, err error) {
 	earliestDate, latestDate := getQueryDetails(req)
 
-	spaces, projectsMap, environmentsMap, err := getMaps(req, server, apiKey)
+	spaces, err = getSpaces(server, apiKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	projectsMap, environmentsMap, err := getMaps(req, server, apiKey, spaces)
 	if err != nil {
 		return nil, nil, nil, err
 	}
