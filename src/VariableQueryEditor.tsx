@@ -43,16 +43,6 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
   return (
     <>
       <div className="gf-form">
-        <span className="gf-form-label width-10">Space Name</span>
-        <input
-          name="spaceName"
-          className="gf-form-input"
-          onBlur={saveQuery}
-          onChange={handleChange}
-          value={state.spaceName}
-        />
-      </div>
-      <div className="gf-form">
         <span className="gf-form-label width-10">Entity Type</span>
         <Select
           value={formatOptions.find(f => f.value == state.entityName)}
@@ -61,6 +51,18 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
           onBlur={saveQuery}
         />
       </div>
+      {state.entityName != "spaces" && state.entityName != "" &&
+        <div className="gf-form">
+          <span className="gf-form-label width-10">Space Name</span>
+          <input
+            name="spaceName"
+            className="gf-form-input"
+            onBlur={saveQuery}
+            onChange={handleChange}
+            value={state.spaceName}
+          />
+        </div>
+      }
     </>
   );
 };

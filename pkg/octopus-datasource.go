@@ -28,6 +28,7 @@ func newDatasource() datasource.ServeOpts {
 	}
 
 	router := mux.NewRouter()
+	router.HandleFunc("/spacesMapping", ds.handleSpacesMapping)
 	router.HandleFunc("/spaces", ds.handleSpaces)
 	router.HandleFunc("/Spaces-{[0-9]+}/{.+}", ds.handleResources)
 

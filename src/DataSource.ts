@@ -15,21 +15,14 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     /**
      * If query or datasource not specified
      */
-    if (!query || !options.variable.datasource || !query.spaceName || !query.entityName) {
+    if (!query || !options.variable.datasource || !query.entityName || (query.entityName != "spaces" && !query.spaceName)) {
       return Promise.resolve([]);
     }
 
     /**
-     * Get space names mapped to IDs
-     */
-    const spacesUrl = `/api/datasources/${options.variable.datasource}/resources/spaces`;
-    const spaces = await fetch(spacesUrl)
-      .then(response => response.json());
-
-    /**
      * Run Query
      */
-    const url = `/api/datasources/${options.variable.datasource}/resources/${spaces[query.spaceName]}/${query.entityName}`;
+    const url = await this.getUrl(query, options);
     return fetch(url)
       .then(response => response.json())
       .then(data => {
@@ -38,5 +31,19 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
         }
         return [];
       });
+  }
+
+  async getUrl(query: MyVariableQuery, options?: any) {
+    if (query.entityName == "spaces") {
+      return `/api/datasources/${options.variable.datasource}/resources/spaces`;
+    }
+
+    /**
+     * Get space names mapped to IDs
+     */
+    const spaces = await fetch(`/api/datasources/${options.variable.datasource}/resources/spacesMapping`)
+      .then(response => response.json());
+
+    return `/api/datasources/${options.variable.datasource}/resources/${spaces[query.spaceName]}/${query.entityName}`;
   }
 }

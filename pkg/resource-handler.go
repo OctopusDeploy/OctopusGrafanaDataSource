@@ -7,11 +7,23 @@ import (
 	"strings"
 )
 
-func (ds *SampleDatasource) handleSpaces(rw http.ResponseWriter, req *http.Request) {
+func (ds *SampleDatasource) handleSpacesMapping(rw http.ResponseWriter, req *http.Request) {
 	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
 	server, apiKey := getConnectionDetails(pluginContext)
 	entities, _ := getAllResources("spaces", server, "", apiKey)
 	json, _ := json.Marshal(entities)
+	rw.Write(json)
+}
+
+func (td *SampleDatasource) handleSpaces(rw http.ResponseWriter, req *http.Request) {
+	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
+	server, apiKey := getConnectionDetails(pluginContext)
+	entities, _ := getAllResources("spaces", server, "", apiKey)
+	entityNames := []string{}
+	for k, _ := range entities {
+		entityNames = append(entityNames, k)
+	}
+	json, _ := json.Marshal(entityNames)
 	rw.Write(json)
 }
 
