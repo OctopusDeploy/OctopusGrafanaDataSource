@@ -6,6 +6,8 @@ The plugin connects to the [reporting](https://octopus.com/docs/administration/r
 
 Other entities such as environments, projects, tenants etc. are also exposed as tables.
 
+![image](https://user-images.githubusercontent.com/160104/99312386-b10dfc80-28a9-11eb-98e7-3324c222b392.png)
+
 # Download
 
 The plugin can be downloaded from the [GitHub Releases](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/releases) page.
@@ -36,7 +38,7 @@ The following tools are required to build the plugin:
 * [Go](https://golang.org/dl/)
 * [Mage](https://magefile.org/#installation)
 * [Nodejs](https://nodejs.org/en/download/)
-* [Yarn](https://classic.yarnpkg.com/en/docs/install/#windows-stable)
+* [Yarn](https://classic.yarnpkg.com/en/docs/install)
 
 Build the plugin with:
 
@@ -66,3 +68,6 @@ docker run -d -p 3000:3000 --name=grafana octopussamples/grafana:latest
 # Sample Dashboard
 
 A sample dashboard displaying data returned by this plugin can be found on the [Grafana Dashboard Gallery](https://grafana.com/grafana/dashboards/13413).
+
+![image](https://user-images.githubusercontent.com/160104/99312462-d13dbb80-28a9-11eb-9977-1fc89c3348b0.png)
+
