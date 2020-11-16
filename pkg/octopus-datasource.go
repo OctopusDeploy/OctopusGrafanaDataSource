@@ -98,6 +98,9 @@ func (td *SampleDatasource) processQueries(ctx context.Context, queries []*query
 
 // getMaps returns a map of space names to ids, maps of space names to project names to ids, and maps of space name to environment names to ids
 func getMaps(req *backend.QueryDataRequest, server string, apiKey string) (spaces map[string]string, projectsMap map[string]map[string]string, environmentsMap map[string]map[string]string, err error) {
+	projectsMap = make(map[string]map[string]string)
+	environmentsMap = make(map[string]map[string]string)
+
 	// get a mapping of space names to ids
 	spaces, err = getAllResources("spaces", server, "", apiKey)
 	if err != nil {
@@ -188,12 +191,12 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 			}
 		} else {
 			// General entity endpoints return JSON, and can be retrieved via getAllResources()
-			url := getResourceUrl(qm.Format, server, qm.SpaceName)
+			url := getResourceUrl(qm.Format, server, spaces[qm.SpaceName])
 			// Each query tracks the url that would generate the data.
 			qm.OctopusQueryUrl = url
 			// Get the entities if we haven't looked them up already
 			if _, ok := generalEntityData[url]; !ok {
-				entities, _ := getAllResources(qm.Format, server, qm.SpaceName, apiKey)
+				entities, _ := getAllResources(qm.Format, server, spaces[qm.SpaceName], apiKey)
 				// populate the generalEntityData map with the results of the API query
 				generalEntityData[url] = entities
 			}
