@@ -40,6 +40,7 @@ type SampleDatasource struct {
 	im instancemgmt.InstanceManager
 }
 
+// getConnectionDetails returns the details for connecting to Octopus
 func getConnectionDetails(context backend.PluginContext) (string, string) {
 	var jsonData datasourceModel
 	json.Unmarshal(context.DataSourceInstanceSettings.JSONData, &jsonData)
@@ -60,7 +61,7 @@ func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDat
 		return nil, err
 	}
 
-	// an array of parsed queries, with links back to the original backend query request, and maps of entities and data
+	// Get an array of parsed queries, with links back to the original backend query request, and maps of entities and data
 	// from the Octopus REST API
 	queries, data, generalEntityData, err := prepareQueries(req, server, apiKey, spaces)
 	if err != nil {
@@ -121,7 +122,7 @@ func getMaps(req *backend.QueryDataRequest, server string, apiKey string) (space
 	return spaces, projectsMap, environmentsMap, nil
 }
 
-// prepareQueries looks through the queries, groups Octopus API calls, and returns the raw Octopus data
+// prepareQueries looks through the queries, groups Octopus API calls to improve performance and remove redundant API calls, and returns the raw Octopus data
 func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string, spaces map[string]string) (queries []*queryModel, data map[string]*Deployments, generalEntityData map[string]map[string]string, err error) {
 	earliestDate, latestDate := getQueryDetails(req)
 
@@ -133,9 +134,10 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 	// an array of parsed queries, with links back to the original backend query request
 	queries = []*queryModel{}
 	// A map of the Octopus query urls to the resulting deployments.
-	// This map means duplicate queries are only requested once.
+	// This map means duplicate API queries are only requested once.
 	data = make(map[string]*Deployments)
-	// A map of the Octopus REST API "all" endpoints we want to query
+	// A map of the Octopus REST API "all" endpoints we want to query.
+	// Again this is used to remove duplicate API queries.
 	generalEntityData = make(map[string]map[string]string)
 
 	for i := 0; i < len(req.Queries); i++ {
@@ -143,7 +145,7 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 		qm, _ := getQueryModel(req.Queries[i].JSON)
 		// link back to the original backend query data
 		qm.Query = req.Queries[i]
-		// we'll loop over these queries later
+		// The list of parsed queries is a return value
 		queries = append(queries, &qm)
 
 		// get the deployments for each query
@@ -151,6 +153,7 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 			// the reporting endpoint is unique in that it returns XML
 			query := ""
 
+			// Build the Octopus API URL
 			if empty(qm.SpaceName) {
 				query = server + "/api/reporting/deployments/xml?" +
 					"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
@@ -161,10 +164,12 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 					"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
 			}
 
+			// Filter server side on the project
 			if val, ok := projectsMap[qm.SpaceName][qm.ProjectName]; ok && !empty(qm.ProjectName) {
 				query += "&projectId=" + url.QueryEscape(val)
 			}
 
+			// Filter server side on the environment
 			if val, ok := environmentsMap[qm.SpaceName][qm.EnvironmentName]; ok && !empty(qm.EnvironmentName) {
 				query += "&environmentId=" + url.QueryEscape(val)
 			}
@@ -176,6 +181,7 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 			if _, ok := data[query]; !ok {
 				xmlData, err := createRequest(query, apiKey)
 				if err == nil {
+					// populate the data map with the results of the API query
 					data[query] = &Deployments{}
 					xml.Unmarshal(xmlData, data[query])
 				}
@@ -188,6 +194,7 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 			// Get the entities if we haven't looked them up already
 			if _, ok := generalEntityData[url]; !ok {
 				entities, _ := getAllResources(qm.Format, server, qm.SpaceName, apiKey)
+				// populate the generalEntityData map with the results of the API query
 				generalEntityData[url] = entities
 			}
 		}
