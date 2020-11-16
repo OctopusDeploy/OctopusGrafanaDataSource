@@ -30,3 +30,27 @@ jobs:
     - run: yarn build
     - run: docker build -t octopussamples/grafana:latest -f ./Dockerfile ./dist
     - run: docker push octopussamples/grafana:latest
+    - name: Create Grafana Plugin ZIP
+      run: |
+        cd dist
+        zip -r octopus_grafana_datasource.zip ./
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: 0.0.${{ github.run_number }}
+        release_name: Release 0.0.${{ github.run_number }}
+        draft: false
+        prerelease: false
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./octopus_grafana_datasource.zip
+        asset_name: octopus_grafana_datasource.zip
+        asset_content_type: application/zip

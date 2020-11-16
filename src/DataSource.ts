@@ -35,7 +35,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
       !query ||
       !options.variable.datasource ||
       !query.entityName ||
-      (query.entityName != 'spaces' && !query.spaceName)
+      (query.entityName !== 'spaces' && !query.spaceName)
     ) {
       return Promise.resolve([]);
     }
@@ -56,7 +56,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   }
 
   async getUrl(query: MyVariableQuery, options?: any) {
-    if (query.entityName == 'spaces') {
+    if (query.entityName === 'spaces') {
       return `/api/datasources/${options.variable.datasource}/resources/spaces`;
     }
 

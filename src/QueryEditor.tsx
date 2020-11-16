@@ -161,7 +161,7 @@ export class QueryEditor extends PureComponent<Props> {
         <div style={{ alignContent: 'flex-start', flexWrap: 'wrap', display: 'flex', flexDirection: 'row' }}>
           <InlineFormLabel width={20}>Result Format</InlineFormLabel>
           <Select
-            value={formatOptions.find(f => f.value == format) || formatOptions.find(f => f.value == 'timeseries')}
+            value={formatOptions.find(f => f.value === format) || formatOptions.find(f => f.value === 'timeseries')}
             options={formatOptions}
             onChange={this.onFormatTextChange}
           />
@@ -172,7 +172,7 @@ export class QueryEditor extends PureComponent<Props> {
           onChange={this.onSpaceNameTextChange}
           label="Space Name Filter"
         />
-        {(format == 'timeseries' || format == 'table') && (
+        {(format === 'timeseries' || format === 'table') && (
           <div>
             <FormField
               labelWidth={20}
@@ -210,13 +210,13 @@ export class QueryEditor extends PureComponent<Props> {
               onChange={this.onTaskSTateTextChange}
               label="Task State Filter"
             />
-            {format == 'timeseries' && (
+            {format === 'timeseries' && (
               <div>
                 <div style={{ alignContent: 'flex-start', flexWrap: 'wrap', display: 'flex', flexDirection: 'row' }}>
                   <InlineFormLabel width={20}>Return Success Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={successField == null ? true : successField}
+                    value={successField === null ? true : successField}
                     onChange={this.onSuccessFieldSwitchChange}
                   />
                 </div>
@@ -224,7 +224,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Failure Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={failureField == null ? true : failureField}
+                    value={failureField === null ? true : failureField}
                     onChange={this.onFailureFieldSwitchChange}
                   />
                 </div>
@@ -232,7 +232,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Cancelled Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={cancelledField == null ? true : cancelledField}
+                    value={cancelledField === null ? true : cancelledField}
                     onChange={this.onCancelledFieldSwitchChange}
                   />
                 </div>
@@ -240,7 +240,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Timed Out Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={timedOutField == null ? true : timedOutField}
+                    value={timedOutField === null ? true : timedOutField}
                     onChange={this.onTimedOutFieldSwitchChange}
                   />
                 </div>
@@ -248,7 +248,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Total Duration Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={totalDurationField == null ? true : totalDurationField}
+                    value={totalDurationField === null ? true : totalDurationField}
                     onChange={this.onTotalDurationFieldSwitchChange}
                   />
                 </div>
@@ -256,7 +256,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Average Duration Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={averageDurationField == null ? true : averageDurationField}
+                    value={averageDurationField === null ? true : averageDurationField}
                     onChange={this.onAverageDurationFieldSwitchChange}
                   />
                 </div>
@@ -264,7 +264,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Total Time To Recovery Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={totalTimeToRecoveryField == null ? true : totalTimeToRecoveryField}
+                    value={totalTimeToRecoveryField === null ? true : totalTimeToRecoveryField}
                     onChange={this.onTotalTimeToRecoveryFieldSwitchChange}
                   />
                 </div>
@@ -272,7 +272,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Average Time To Recovery Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={averageTimeToRecoveryField == null ? true : averageTimeToRecoveryField}
+                    value={averageTimeToRecoveryField === null ? true : averageTimeToRecoveryField}
                     onChange={this.onAverageTimeToRecoveryFieldSwitchChange}
                   />
                 </div>
@@ -287,7 +287,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Total Cycle Time Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={totalCycleTimeField == null ? true : totalCycleTimeField}
+                    value={totalCycleTimeField === null ? true : totalCycleTimeField}
                     onChange={this.onTotalCycleTimeFieldSwitchChange}
                   />
                 </div>
@@ -295,7 +295,7 @@ export class QueryEditor extends PureComponent<Props> {
                   <InlineFormLabel width={20}>Return Average Cycle Time Field</InlineFormLabel>
                   <Switch
                     css="css"
-                    value={averageCycleTimeField == null ? true : averageCycleTimeField}
+                    value={averageCycleTimeField === null ? true : averageCycleTimeField}
                     onChange={this.onAverageCycleTimeFieldSwitchChange}
                   />
                 </div>

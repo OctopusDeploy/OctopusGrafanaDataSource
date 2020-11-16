@@ -25,7 +25,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
   ];
 
   const saveQuery = () => {
-    onChange(state, state.entityName == 'spaces' ? 'spaces' : `${state.spaceName}: ${state.entityName}`);
+    onChange(state, state.entityName === 'spaces' ? 'spaces' : `${state.spaceName}: ${state.entityName}`);
   };
 
   const handleChange = (event: React.FormEvent<HTMLInputElement>) =>
@@ -46,13 +46,13 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
       <div className="gf-form">
         <span className="gf-form-label width-10">Entity Type</span>
         <Select
-          value={formatOptions.find(f => f.value == state.entityName)}
+          value={formatOptions.find(f => f.value === state.entityName)}
           options={formatOptions}
           onChange={onEntityTextChange}
           onBlur={saveQuery}
         />
       </div>
-      {state.entityName != 'spaces' && state.entityName != '' && (
+      {state.entityName && state.entityName !== 'spaces' && (
         <div className="gf-form">
           <span className="gf-form-label width-10">Space Name</span>
           <input
