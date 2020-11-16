@@ -9,6 +9,21 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     super(instanceSettings);
   }
 
+  applyTemplateVariables(query: MyQuery) {
+    const templateSrv = getTemplateSrv();
+
+    return {
+      ...query,
+      spaceName: query.spaceName ? templateSrv.replace(query.spaceName) : '',
+      projectName: query.projectName ? templateSrv.replace(query.projectName) : '',
+      tenantName: query.tenantName ? templateSrv.replace(query.tenantName) : '',
+      environmentName: query.environmentName ? templateSrv.replace(query.environmentName) : '',
+      channelName: query.channelName ? templateSrv.replace(query.channelName) : '',
+      releaseVersion: query.releaseVersion ? templateSrv.replace(query.releaseVersion) : '',
+      taskState: query.taskState ? templateSrv.replace(query.taskState) : '',
+    };
+  }
+
   /**
    * Variable query action.
    */

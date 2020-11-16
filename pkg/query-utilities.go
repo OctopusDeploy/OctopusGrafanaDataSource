@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"time"
 )
 
@@ -34,6 +35,8 @@ func getQueryModel(jsonData []byte) (queryModel, error) {
 
 // includeDeployment will determine if a deployment record satisfies the current filters
 func includeDeployment(qm *queryModel, deployment *Deployment) bool {
+	log.DefaultLogger.Info("Environment name query: " + qm.EnvironmentName)
+
 	if !empty(qm.ReleaseVersion) && deployment.ReleaseVersion != qm.ReleaseVersion {
 		return false
 	}

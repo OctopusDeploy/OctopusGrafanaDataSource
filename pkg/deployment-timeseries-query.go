@@ -28,6 +28,7 @@ func setCompletedTimeRounded(deployments Deployments, bucketDuration time.Durati
 // query generates a time series response, combining deployment information into time buckets
 // that can be displayed in a graph.
 func (td *SampleDatasource) query(ctx context.Context, qm queryModel, query backend.DataQuery, deployments Deployments, server string, space string, spaces map[string]string, apiKey string) backend.DataResponse {
+
 	response := backend.DataResponse{}
 
 	// create data frame response
