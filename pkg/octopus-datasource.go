@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"github.com/gorilla/mux"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/datasource"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/resource/httpadapter"
 	"net/http"
 	"net/url"
 )
@@ -25,10 +27,14 @@ func newDatasource() datasource.ServeOpts {
 		im: im,
 	}
 
+	router := mux.NewRouter()
+	router.HandleFunc("/spaces", ds.handleSpaces)
+	router.HandleFunc("/Spaces-{[0-9]+}/{.+}", ds.handleResources)
+
 	return datasource.ServeOpts{
 		QueryDataHandler:    ds,
 		CheckHealthHandler:  ds,
-		CallResourceHandler: ds,
+		CallResourceHandler: httpadapter.New(router),
 	}
 }
 

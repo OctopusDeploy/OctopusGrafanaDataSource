@@ -20,16 +20,16 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     }
 
     /**
-     * Get space names maped to IDs
+     * Get space names mapped to IDs
      */
-    const spacesUrl = `/api/plugins/${options.variable.datasource}/resources/spaces`;
+    const spacesUrl = `/api/datasources/${options.variable.datasource}/resources/spaces`;
     const spaces = await fetch(spacesUrl)
       .then(response => response.json());
 
     /**
      * Run Query
      */
-    const url = `/api/plugins/${options.variable.datasource}/resources/${spaces[query.spaceName]}/${query.entityName}`;
+    const url = `/api/datasources/${options.variable.datasource}/resources/${spaces[query.spaceName]}/${query.entityName}`;
     return fetch(url)
       .then(response => response.json())
       .then(data => {
