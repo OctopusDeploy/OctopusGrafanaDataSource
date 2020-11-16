@@ -2,7 +2,7 @@ name: Build and deploy
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   test_pull_request:
