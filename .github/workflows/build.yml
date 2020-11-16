@@ -28,8 +28,9 @@ jobs:
         args: -v
     - run: yarn install
     - run: yarn build
-    - run: docker build -t octopussamples/grafana:latest -f ./Dockerfile ./dist
+    - run: docker build -t octopussamples/grafana:latest -t octopussamples/grafana:0.0.${{ github.run_number }} -f ./Dockerfile ./dist
     - run: docker push octopussamples/grafana:latest
+    - run: docker push octopussamples/grafana:0.0.${{ github.run_number }}
     - name: Create Grafana Plugin ZIP
       run: |
         cd dist
