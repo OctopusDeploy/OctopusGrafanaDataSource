@@ -1,0 +1,25 @@
+name: Build and deploy
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test_pull_request:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15.5' # The Go version to download (if necessary) and use.
+        - run: go version
+      - uses: actions/setup-node@v1
+        with:
+      node-version: '12'
+      - name: Run Mage
+        uses: magefile/mage-action@v1
+        with:
+          version: latest
+          args: -v
+      - run: yarn install
+      - run: yarn build
