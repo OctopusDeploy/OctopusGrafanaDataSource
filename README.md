@@ -8,6 +8,12 @@ Other entities such as environments, projects, tenants etc. are also exposed as 
 
 ![image](https://user-images.githubusercontent.com/160104/99312386-b10dfc80-28a9-11eb-98e7-3324c222b392.png)
 
+# Support
+
+This plugin is released as an early access. We expect it has bugs and gaps in functionality, and is only recommended for testing.
+
+If you have found an issue or have a suggestion, please reach out to our [support teams](https://octopus.com/support).
+
 # Download
 
 The plugin can be downloaded from the [GitHub Releases](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/releases) page.
