@@ -18,7 +18,7 @@ If you have found an issue or have a suggestion, please reach out to our [suppor
 
 The plugin can be downloaded from the [GitHub Releases](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/releases) page.
 
-This ZIP file is then extracted into the Grafana plugin directory (which is usually `INSTALL_DIR/data/plugins`):
+This ZIP file is then extracted into the Grafana plugin directory (which is usually `INSTALL_DIR\data\plugins` or `/var/lib/grafana/plugins`):
 
 ```
 unzip octopus_grafana_datasource.zip -d YOUR_PLUGIN_DIR/octopus
