@@ -284,7 +284,7 @@ export class QueryEditor extends PureComponent<Props> {
                   </div>
                 </div>
                 <div style={{ alignContent: 'flex-start', flexWrap: 'wrap', display: 'flex', flexDirection: 'row' }}>
-                  <InlineFormLabel width={20}>Return Total Cycle Time Field</InlineFormLabel>
+                  <InlineFormLabel width={20}>Return Total Deployment Lead Field</InlineFormLabel>
                   <Switch
                     css="css"
                     value={totalCycleTimeField === null ? true : totalCycleTimeField}
@@ -292,7 +292,7 @@ export class QueryEditor extends PureComponent<Props> {
                   />
                 </div>
                 <div style={{ alignContent: 'flex-start', flexWrap: 'wrap', display: 'flex', flexDirection: 'row' }}>
-                  <InlineFormLabel width={20}>Return Average Cycle Time Field</InlineFormLabel>
+                  <InlineFormLabel width={20}>Return Average Deployment Lead Time Field</InlineFormLabel>
                   <Switch
                     css="css"
                     value={averageCycleTimeField === null ? true : averageCycleTimeField}
