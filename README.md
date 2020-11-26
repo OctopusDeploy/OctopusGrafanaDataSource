@@ -6,6 +6,8 @@ The plugin connects to the [reporting](https://octopus.com/docs/administration/r
 
 Other entities such as environments, projects, tenants etc. are also exposed as tables.
 
+This plugin requires Grafana 7 or later.
+
 ![image](https://user-images.githubusercontent.com/160104/99312386-b10dfc80-28a9-11eb-98e7-3324c222b392.png)
 
 # Support
