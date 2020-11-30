@@ -1,9 +1,9 @@
-import {AnnotationEvent, AnnotationQueryRequest, DataSourceInstanceSettings, MetricFindValue} from '@grafana/data';
+import { AnnotationEvent, AnnotationQueryRequest, DataSourceInstanceSettings, MetricFindValue } from '@grafana/data';
 import { DataSourceWithBackend } from '@grafana/runtime';
 import { getTemplateSrv } from '@grafana/runtime';
 import { MyDataSourceOptions, MyQuery } from './types';
 import { MyVariableQuery } from './VariableQueryEditor';
-import _ from "lodash";
+import _ from 'lodash';
 
 export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
@@ -64,9 +64,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     /**
      * Get space names mapped to IDs
      */
-    const spaces = await fetch(
-      `/api/datasources/${datasource}/resources/spaces`
-    ).then(response => response.json());
+    const spaces = await fetch(`/api/datasources/${datasource}/resources/spaces`).then(response => response.json());
 
     const spaceNameFixed = getTemplateSrv().replace(spaceName);
 
@@ -86,40 +84,47 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const query: MyQuery = options.annotation;
     const datasource = options.annotation.datasource;
 
-    const spaceId = await this.getSpaceId(
-      query.spaceName || "",
-      datasource)
+    const spaceId = await this.getSpaceId(query.spaceName || '', datasource);
     const environmentId = await this.getEntityId(
-      query.spaceName || "",
-      "environments",
-      query.environmentName || "",
-      datasource)
-    const projectId = await this.getEntityId(
-      query.spaceName || "",
-      "projects",
-      query.projectName || "",
-      datasource)
-    const from = options.range.from.format("YYYY-MM-DD HH:mm:ss");
-    const to = options.range.to.format("YYYY-MM-DD HH:mm:ss");
+      query.spaceName || '',
+      'environments',
+      query.environmentName || '',
+      datasource
+    );
+    const projectId = await this.getEntityId(query.spaceName || '', 'projects', query.projectName || '', datasource);
+    const from = options.range.from.format('YYYY-MM-DD HH:mm:ss');
+    const to = options.range.to.format('YYYY-MM-DD HH:mm:ss');
 
-    const url = `/api/datasources/${datasource}/resources/${spaceId}/reporting/deployments` +
-      "?environmentId=" + encodeURI(environmentId) +
-      "&projectId=" + encodeURI(projectId) +
-      "&fromCompletedTime=" + encodeURI(from) +
-      "&toCompletedTime=" + encodeURI(to);
+    const url =
+      `/api/datasources/${datasource}/resources/${spaceId}/reporting/deployments` +
+      '?environmentId=' +
+      encodeURI(environmentId) +
+      '&projectId=' +
+      encodeURI(projectId) +
+      '&fromCompletedTime=' +
+      encodeURI(from) +
+      '&toCompletedTime=' +
+      encodeURI(to);
 
     return fetch(url)
       .then(response => response.json())
-      .then(data => data.Deployments
-        ? data.Deployments.map((d: any) => ({
-            time: Date.parse(d.StartTimeParsed),
-            timeEnd: Date.parse(d.CompletedTimeParsed),
-            isRegion: true,
-            text: d.DeploymentId,
-            tags: ["Project: " + d.ProjectName, "Tenant: " + d.TenantName, "Channel: " + d.ChannelName, "Environment: " + d.EnvironmentName, "Version: " + d.ReleaseVersion],
-        }))
-        : []
-      )
+      .then(data =>
+        data.Deployments
+          ? data.Deployments.map((d: any) => ({
+              time: Date.parse(d.StartTimeParsed),
+              timeEnd: Date.parse(d.CompletedTimeParsed),
+              isRegion: true,
+              text: d.DeploymentId,
+              tags: [
+                'Project: ' + d.ProjectName,
+                'Tenant: ' + d.TenantName,
+                'Channel: ' + d.ChannelName,
+                'Environment: ' + d.EnvironmentName,
+                'Version: ' + d.ReleaseVersion,
+              ],
+            }))
+          : []
+      );
   }
 
   /**
@@ -134,7 +139,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const entityNameFixed = getTemplateSrv().replace(entityName);
     const url = await this.getUrl(entityType, spaceName, datasource);
     const entities = await fetch(url).then(response => response.json());
-    return entities[entityNameFixed] || "";
+    return entities[entityNameFixed] || '';
   }
 
   /**
@@ -145,9 +150,8 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
    */
   async getSpaceId(spaceName: string, datasource: string): Promise<string> {
     const entityNameFixed = getTemplateSrv().replace(spaceName);
-    const url = await this.getUrl("spaces", entityNameFixed, datasource);
+    const url = await this.getUrl('spaces', entityNameFixed, datasource);
     const entities = await fetch(url).then(response => response.json());
-    return entities[entityNameFixed] || "";
+    return entities[entityNameFixed] || '';
   }
-
 }
