@@ -8,19 +8,29 @@ import (
 )
 
 func getBucketDuration(queryDuration time.Duration, bucketDuration time.Duration) (int64, time.Duration) {
-	fixedDuration := time.Duration(60)
-	if bucketDuration != 0 {
-		fixedDuration = bucketDuration
-	}
-	buckets := Min(maxFrames, int64(queryDuration/fixedDuration))
+	buckets := Min(maxFrames, int64(queryDuration/bucketDuration))
 	return buckets, queryDuration / time.Duration(buckets)
+}
+
+func parseTimes(deployments Deployments) {
+	for i := 0; i < len(deployments.Deployments); i++ {
+		parsedTime, err := time.Parse(releaseHistoryDateFormat, deployments.Deployments[i].StartTime)
+		if err == nil {
+			deployments.Deployments[i].StartTimeParsed = parsedTime
+		}
+
+		parsedTime, err = time.Parse(releaseHistoryDateFormat, deployments.Deployments[i].CompletedTime)
+		if err == nil {
+			deployments.Deployments[i].CompletedTimeParsed = parsedTime
+		}
+	}
 }
 
 func setCompletedTimeRounded(deployments Deployments, bucketDuration time.Duration) {
 	for i := 0; i < len(deployments.Deployments); i++ {
 		time, err := time.Parse(releaseHistoryDateFormat, deployments.Deployments[i].CompletedTime)
 		if err == nil {
-			deployments.Deployments[i].CompetedTimeRounded = time.Round(bucketDuration)
+			deployments.Deployments[i].CompletedTimeRounded = time.Round(bucketDuration)
 		}
 	}
 }
@@ -48,7 +58,7 @@ func (td *SampleDatasource) query(ctx context.Context, qm queryModel, query back
 	avgCycleTime := []uint32{}
 
 	// Work out how long the buckets should be
-	buckets, bucketDuration := getBucketDuration(query.TimeRange.Duration(), query.Interval)
+	buckets, bucketDuration := getBucketDuration(query.TimeRange.Duration(), time.Duration(int64(query.TimeRange.Duration())/query.MaxDataPoints))
 
 	// get the bucket start time for each deployment
 	setCompletedTimeRounded(deployments, bucketDuration)
@@ -71,7 +81,7 @@ func (td *SampleDatasource) query(ctx context.Context, qm queryModel, query back
 			for index, d := range deployments.Deployments {
 				// Make sure the deployment matches the query filters, and the deployment
 				// completion time matches the start of this time bucket
-				if includeDeployment(&qm, &d) && d.CompetedTimeRounded.Equal(roundedTime) {
+				if includeDeployment(&qm, &d) && d.CompletedTimeRounded.Equal(roundedTime) {
 
 					thisCycleTime := uint32(0)
 

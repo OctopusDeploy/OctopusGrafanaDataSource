@@ -11,7 +11,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/resource/httpadapter"
 	"net/http"
-	"net/url"
 )
 
 const octopusDateFormat = "2006-01-02 15:04:05"
@@ -28,9 +27,9 @@ func newDatasource() datasource.ServeOpts {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/spacesMapping", ds.handleSpacesMapping)
 	router.HandleFunc("/spaces", ds.handleSpaces)
 	router.HandleFunc("/Spaces-{[0-9]+}/{.+}", ds.handleResources)
+	router.HandleFunc("/Spaces-{[0-9]+}/reporting/deployments", ds.handleReportingRequest)
 
 	return datasource.ServeOpts{
 		QueryDataHandler:    ds,
@@ -170,40 +169,30 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 
 		// get the deployments for each query
 		if qm.Format == "table" || qm.Format == "timeseries" {
-			// the reporting endpoint is unique in that it returns XML
-			query := ""
-
-			// Build the Octopus API URL
-			if empty(qm.SpaceName) {
-				query = server + "/api/reporting/deployments/xml?" +
-					"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
-					"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
-			} else {
-				query = server + "/api/" + spaces[qm.SpaceName] + "/reporting/deployments/xml?" +
-					"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
-					"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
-			}
-
-			// Filter server side on the project
+			// Get the ids of the entities being queried
+			projectId := ""
 			if val, ok := projectsMap[qm.SpaceName][qm.ProjectName]; ok && !empty(qm.ProjectName) {
-				query += "&projectId=" + url.QueryEscape(val)
+				projectId = val
 			}
-
-			// Filter server side on the environment
+			environmentId := ""
 			if val, ok := environmentsMap[qm.SpaceName][qm.EnvironmentName]; ok && !empty(qm.EnvironmentName) {
-				query += "&environmentId=" + url.QueryEscape(val)
+				environmentId = val
+			}
+			spaceId := ""
+			if val, ok := spaces[qm.SpaceName]; ok && !empty(qm.SpaceName) {
+				spaceId = val
 			}
 
 			// Each query tracks the url that would generate the data.
-			qm.OctopusQueryUrl = query
+			qm.OctopusQueryUrl = buildReportingQueryUrl(server, spaceId, environmentId, projectId, earliestDate, latestDate)
 
 			// If the query url has not been accessed, hit the API to get the deployments.
-			if _, ok := data[query]; !ok {
-				xmlData, err := createRequest(query, apiKey)
+			if _, ok := data[qm.OctopusQueryUrl]; !ok {
+				xmlData, err := createRequest(qm.OctopusQueryUrl, apiKey)
 				if err == nil {
 					// populate the data map with the results of the API query
-					data[query] = &Deployments{}
-					xml.Unmarshal(xmlData, data[query])
+					data[qm.OctopusQueryUrl] = &Deployments{}
+					xml.Unmarshal(xmlData, data[qm.OctopusQueryUrl])
 				}
 			}
 		} else {

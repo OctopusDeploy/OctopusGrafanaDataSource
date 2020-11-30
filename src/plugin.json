@@ -4,6 +4,7 @@
   "id": "octopus-deploy-xmlfeed",
   "metrics": true,
   "backend": true,
+  "annotations": true,
   "executable": "gpx_xmlfeed",
   "info": {
     "description": "Backend datasource to connect to an Octopus XML reporting feed",

@@ -5,20 +5,10 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
-	"regexp"
+	"net/url"
 	"strconv"
-	"strings"
 	"time"
 )
-
-func slugify(value string) string {
-	value = strings.ToLower(value)
-	value = regexp.MustCompile(`\s`).ReplaceAllString(value, "-")
-	value = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(value, "-")
-	value = regexp.MustCompile(`-+`).ReplaceAllString(value, "-")
-	value = strings.Trim(value, "-/")
-	return value
-}
 
 func createRequest(url string, apiKey string) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
@@ -132,4 +122,32 @@ func getTimeToSuccess(deployment Deployment, deployments []Deployment, index int
 	}
 
 	return 0
+}
+
+func buildReportingQueryUrl(server string, spaceId string, environmentId string, projectId string, earliestDate time.Time, latestDate time.Time) string {
+	// the reporting endpoint is unique in that it returns XML
+	query := ""
+
+	// Build the Octopus API URL
+	if empty(spaceId) {
+		query = server + "/api/reporting/deployments/xml?" +
+			"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+			"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+	} else {
+		query = server + "/api/" + spaceId + "/reporting/deployments/xml?" +
+			"fromCompletedTime=" + url.QueryEscape(earliestDate.Format(octopusDateFormat)) +
+			"&toCompletedTime=" + url.QueryEscape(latestDate.Format(octopusDateFormat))
+	}
+
+	// Filter server side on the project
+	if !empty(projectId) {
+		query += "&projectId=" + url.QueryEscape(projectId)
+	}
+
+	// Filter server side on the environment
+	if !empty(environmentId) {
+		query += "&environmentId=" + url.QueryEscape(environmentId)
+	}
+
+	return query
 }
