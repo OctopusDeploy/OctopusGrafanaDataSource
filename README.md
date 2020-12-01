@@ -39,6 +39,17 @@ allow_loading_unsigned_plugins = octopus-deploy-xmlfeed
 
 See the [Grafana documentation](https://grafana.com/docs/grafana/latest/administration/configuration/#allow_loading_unsigned_plugins) for more details.
 
+# Octopus Permissions
+
+The account used to query Octopus requires the following permissions in the spaces that Grafana will report on:
+
+* DeploymentView
+* EnvironmentView
+* TenantView
+* ProcessView
+* ProjectView
+* ReleaseView
+
 # Building
 
 The following tools are required to build the plugin:
