@@ -48,6 +48,7 @@ The account used to query Octopus requires the following permissions in the spac
 * TenantView
 * ProcessView
 * ProjectView
+* ReleaseView
 
 # Building
 
