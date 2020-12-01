@@ -28,7 +28,7 @@ func (ds *SampleDatasource) handleSpaceEntityMapping(rw http.ResponseWriter, req
 func (td *SampleDatasource) handleSpaces(rw http.ResponseWriter, req *http.Request) {
 	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
 	server, apiKey := getConnectionDetails(pluginContext)
-	entities, _ := getAllResources("spaces", server, "", apiKey)
+	entities, _ := getSpaceResources(server, apiKey)
 	json, _ := json.Marshal(entities)
 	rw.Write(json)
 }

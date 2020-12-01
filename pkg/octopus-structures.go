@@ -10,6 +10,12 @@ type IdResource struct {
 	Id   string `json:Id`
 }
 
+type SpaceResource struct {
+	Name      string `json:Name`
+	Id        string `json:Id`
+	IsDefault bool   `json:IsDefault`
+}
+
 type Release struct {
 	Name          string `json:Name`
 	Id            string `json:Id`

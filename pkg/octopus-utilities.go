@@ -46,6 +46,33 @@ func getResourceUrl(resourceType string, server string, space string) string {
 	}
 }
 
+// getSpaceResources calls the "all" API endpoint to return all available resources in a name to id map
+func getSpaceResources(server string, apiKey string) (map[string]string, error) {
+	url := getResourceUrl("spaces", server, "")
+
+	body, err := createRequest(url, apiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var parsedResults []SpaceResource
+	err = json.Unmarshal(body, &parsedResults)
+
+	if err == nil {
+		results := make(map[string]string)
+		for _, r := range parsedResults {
+			results[r.Name] = r.Id
+			// the default space is the unnamed space, identified as a single space
+			if r.IsDefault {
+				results[" "] = r.Id
+			}
+		}
+		return results, nil
+	}
+
+	return nil, err
+}
+
 // getAllResources calls the "all" API endpoint to return all available resources in a name to id map
 func getAllResources(resourceType string, server string, space string, apiKey string) (map[string]string, error) {
 	url := getResourceUrl(resourceType, server, space)

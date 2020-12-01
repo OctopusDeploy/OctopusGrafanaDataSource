@@ -32,12 +32,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     /**
      * If query or datasource not specified
      */
-    if (
-      !query ||
-      !options.variable.datasource ||
-      !query.entityName ||
-      (query.entityName !== 'spaces' && !query.spaceName)
-    ) {
+    if (!query || !options.variable.datasource || !query.entityName) {
       return Promise.resolve([]);
     }
 
@@ -67,9 +62,11 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const spaces = await fetch(`/api/datasources/${datasource}/resources/spaces`).then(response => response.json());
 
     const spaceNameFixed = getTemplateSrv().replace(spaceName);
+    // treat an empty space as the default, which is identified as a single space
+    const spaceNameDealWithDefault = spaceNameFixed || ' ';
 
-    if (spaces[spaceNameFixed]) {
-      return `/api/datasources/${datasource}/resources/${spaces[spaceNameFixed]}/${entityName}`;
+    if (spaces[spaceNameDealWithDefault]) {
+      return `/api/datasources/${datasource}/resources/${spaces[spaceNameDealWithDefault]}/${entityName}`;
     }
 
     throw 'Space could not be found';
