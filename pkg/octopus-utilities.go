@@ -35,6 +35,7 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.DefaultLogger.Error("GET request to " + url + " failed: " + err.Error())
 		return nil, err
 	}
 
