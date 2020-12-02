@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 	"time"
 )
@@ -38,6 +39,13 @@ func setCompletedTimeRounded(deployments Deployments, bucketDuration time.Durati
 // query generates a time series response, combining deployment information into time buckets
 // that can be displayed in a graph.
 func (td *SampleDatasource) query(ctx context.Context, qm queryModel, query backend.DataQuery, deployments Deployments, server string, space string, spaces map[string]string, apiKey string) backend.DataResponse {
+
+	log.DefaultLogger.Info("ReleaseVersion filter " + qm.ReleaseVersion)
+	log.DefaultLogger.Info("ProjectName filter " + qm.ProjectName)
+	log.DefaultLogger.Info("ChannelName filter " + qm.ChannelName)
+	log.DefaultLogger.Info("TenantName filter " + qm.TenantName)
+	log.DefaultLogger.Info("EnvironmentName filter " + qm.EnvironmentName)
+	log.DefaultLogger.Info("TaskState filter " + qm.TaskState)
 
 	response := backend.DataResponse{}
 

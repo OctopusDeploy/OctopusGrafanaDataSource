@@ -52,21 +52,23 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   }
 
   async getUrl(entityName: string, spaceName: string, datasource: string) {
+    const datasourceId = await this.datasourceNameToId(datasource);
+
     if (entityName === 'spaces') {
-      return `/api/datasources/${datasource}/resources/spaces`;
+      return `/api/datasources/${datasourceId}/resources/spaces`;
     }
 
     /**
      * Get space names mapped to IDs
      */
-    const spaces = await fetch(`/api/datasources/${datasource}/resources/spaces`).then(response => response.json());
+    const spaces = await fetch(`/api/datasources/${datasourceId}/resources/spaces`).then(response => response.json());
 
     const spaceNameFixed = getTemplateSrv().replace(spaceName);
     // treat an empty space as the default, which is identified as a single space
     const spaceNameDealWithDefault = spaceNameFixed || ' ';
 
     if (spaces[spaceNameDealWithDefault]) {
-      return `/api/datasources/${datasource}/resources/${spaces[spaceNameDealWithDefault]}/${entityName}`;
+      return `/api/datasources/${datasourceId}/resources/${spaces[spaceNameDealWithDefault]}/${entityName}`;
     }
 
     throw 'Space could not be found';
@@ -80,6 +82,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   async annotationQuery(options: AnnotationQueryRequest<MyQuery>): Promise<AnnotationEvent[]> {
     const query: MyQuery = options.annotation;
     const datasource = options.annotation.datasource;
+    const datasourceId = await this.datasourceNameToId(datasource);
 
     const spaceId = await this.getSpaceId(query.spaceName || '', datasource);
     const environmentId = await this.getEntityId(
@@ -93,7 +96,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const to = options.range.to.format('YYYY-MM-DD HH:mm:ss');
 
     const url =
-      `/api/datasources/${datasource}/resources/${spaceId}/reporting/deployments` +
+      `/api/datasources/${datasourceId}/resources/${spaceId}/reporting/deployments` +
       '?environmentId=' +
       encodeURI(environmentId) +
       '&projectId=' +
@@ -150,5 +153,11 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const url = await this.getUrl('spaces', entityNameFixed, datasource);
     const entities = await fetch(url).then(response => response.json());
     return entities[entityNameFixed] || '';
+  }
+
+  async datasourceNameToId(datasource: string): Promise<string> {
+    return await fetch(`/api/datasources/id/` + encodeURI(datasource))
+      .then(response => response.json())
+      .then(json => json.id);
   }
 }

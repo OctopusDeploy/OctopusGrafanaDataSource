@@ -64,9 +64,10 @@ func (td *SampleDatasource) handleReportingRequest(rw http.ResponseWriter, req *
 
 	query := buildReportingQueryUrl(server, spaceId, environmentId, projectId, earliestDate, latestDate)
 
-	log.DefaultLogger.Info("Annotation url: " + query)
-	log.DefaultLogger.Info("from time: " + req.URL.Query().Get("fromCompletedTime"))
-	log.DefaultLogger.Info("to time: " + req.URL.Query().Get("toCompletedTime"))
+	log.DefaultLogger.Info("Annotation project ID: " + req.URL.Query().Get("projectId"))
+	log.DefaultLogger.Info("Annotation environment ID: " + req.URL.Query().Get("environmentId"))
+	log.DefaultLogger.Info("Annotation from time: " + req.URL.Query().Get("fromCompletedTime"))
+	log.DefaultLogger.Info("Annotation to time: " + req.URL.Query().Get("toCompletedTime"))
 
 	// populate the data map with the results of the API query
 	deployments := &Deployments{}

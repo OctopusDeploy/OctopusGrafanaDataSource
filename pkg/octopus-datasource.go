@@ -8,7 +8,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/datasource"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/resource/httpadapter"
 	"net/http"
 )
@@ -217,8 +216,6 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 // datasource configuration page which allows users to verify that
 // a datasource is working as expected.
 func (td *SampleDatasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
-	log.DefaultLogger.Info("CheckHealth")
-
 	path, apiKey := getConnectionDetails(req.PluginContext)
 
 	_, err := createRequest(path+"/api", apiKey)
@@ -226,7 +223,7 @@ func (td *SampleDatasource) CheckHealth(ctx context.Context, req *backend.CheckH
 	if err != nil {
 		return &backend.CheckHealthResult{
 			Status:  backend.HealthStatusError,
-			Message: "failed to contact Octopus server",
+			Message: "Failed to contact Octopus server, or API key is invalid",
 		}, nil
 	}
 

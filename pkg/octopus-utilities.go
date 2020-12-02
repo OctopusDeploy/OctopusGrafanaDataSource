@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -11,6 +12,8 @@ import (
 )
 
 func createRequest(url string, apiKey string) ([]byte, error) {
+	log.DefaultLogger.Info("GET request to " + url)
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
