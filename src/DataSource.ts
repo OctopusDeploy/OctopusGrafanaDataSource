@@ -152,7 +152,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const url = await this.getUrl('spaces', '', datasource);
     const entities = await fetch(url).then(response => response.json());
     const entityNameFixed = getTemplateSrv().replace(spaceName);
-    const entityNameOrDefault = entityNameFixed == '' ? ' ' : entityNameFixed;
+    const entityNameOrDefault = entityNameFixed === '' ? ' ' : entityNameFixed;
     return entities[entityNameOrDefault] || '';
   }
 
