@@ -1,4 +1,4 @@
-FROM grafana/grafana:7.0.0
+FROM grafana/grafana
 RUN mkdir /var/lib/grafana/plugins/octopus
 RUN mkdir /var/lib/grafana/plugins/octopus/img
 COPY ./* /var/lib/grafana/plugins/octopus/
