@@ -149,10 +149,11 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
    * @return The ID of the space.
    */
   async getSpaceId(spaceName: string, datasource: string): Promise<string> {
-    const entityNameFixed = getTemplateSrv().replace(spaceName);
-    const url = await this.getUrl('spaces', entityNameFixed, datasource);
+    const url = await this.getUrl('spaces', '', datasource);
     const entities = await fetch(url).then(response => response.json());
-    return entities[entityNameFixed] || '';
+    const entityNameFixed = getTemplateSrv().replace(spaceName);
+    const entityNameOrDefault = entityNameFixed == '' ? ' ' : entityNameFixed;
+    return entities[entityNameOrDefault] || '';
   }
 
   async datasourceNameToId(datasource: string): Promise<string> {
