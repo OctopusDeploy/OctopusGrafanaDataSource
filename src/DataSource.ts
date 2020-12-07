@@ -55,20 +55,22 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const datasourceId = await this.datasourceNameToId(datasource);
 
     if (entityName === 'spaces') {
-      return `/api/datasources/${datasourceId}/resources/spaces`;
+      return `/api/datasources/${datasourceId}/resources/spaces/nameid`;
     }
 
     /**
      * Get space names mapped to IDs
      */
-    const spaces = await fetch(`/api/datasources/${datasourceId}/resources/spaces`).then(response => response.json());
+    const spaces = await fetch(`/api/datasources/${datasourceId}/resources/spaces/nameid`).then(response =>
+      response.json()
+    );
 
     const spaceNameFixed = getTemplateSrv().replace(spaceName);
     // treat an empty space as the default, which is identified as a single space
     const spaceNameDealWithDefault = spaceNameFixed || ' ';
 
     if (spaces[spaceNameDealWithDefault]) {
-      return `/api/datasources/${datasourceId}/resources/${spaces[spaceNameDealWithDefault]}/${entityName}`;
+      return `/api/datasources/${datasourceId}/resources/${spaces[spaceNameDealWithDefault]}/nameid/${entityName}`;
     }
 
     throw 'Space could not be found';
@@ -95,6 +97,41 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const from = options.range.from.format('YYYY-MM-DD HH:mm:ss');
     const to = options.range.to.format('YYYY-MM-DD HH:mm:ss');
 
+    if (query.format == 'deployments') {
+      return this.getDeploymentAnnotation(datasourceId, spaceId, environmentId, projectId);
+    } else {
+      return this.getDeploymentReportAnnotation(datasourceId, spaceId, environmentId, projectId, from, to);
+    }
+  }
+
+  async getDeploymentAnnotation(datasourceId: string, spaceId: string, environmentId: string, projectId: string) {
+    const url =
+      `/api/datasources/${datasourceId}/resources/${spaceId}/deployments` +
+      '?environmentId=' +
+      encodeURI(environmentId) +
+      '&projectId=' +
+      encodeURI(projectId);
+
+    return fetch(url)
+      .then(response => response.json())
+      .then(data =>
+        data.map((d: any) => ({
+          time: Date.parse(d.CreatedParsed),
+          isRegion: false,
+          text: d.Id,
+          tags: ['Name: ' + d.Name],
+        }))
+      );
+  }
+
+  async getDeploymentReportAnnotation(
+    datasourceId: string,
+    spaceId: string,
+    environmentId: string,
+    projectId: string,
+    from: string,
+    to: string
+  ) {
     const url =
       `/api/datasources/${datasourceId}/resources/${spaceId}/reporting/deployments` +
       '?environmentId=' +

@@ -154,6 +154,7 @@ export class QueryEditor extends PureComponent<Props> {
       { value: 'tenants', label: 'tenants table' },
       { value: 'channels', label: 'channels table' },
       { value: 'projects', label: 'projects table' },
+      { value: 'deployments', label: 'deployments table' },
     ];
 
     return (

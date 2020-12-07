@@ -7,5 +7,6 @@ export class AnnotationQueryEditor {
     this.annotation.spaceName = this.annotation.spaceName || '';
     this.annotation.projectName = this.annotation.projectName || '';
     this.annotation.environmentName = this.annotation.environmentName || '';
+    this.annotation.format = this.annotation.format || 'deploymentreport';
   }
 }

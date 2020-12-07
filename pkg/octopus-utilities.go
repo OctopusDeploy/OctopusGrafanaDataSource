@@ -44,7 +44,14 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 
 func getResourceUrl(resourceType string, server string, space string) string {
 	if !empty(space) && resourceType != "spaces" {
-		return server + "/api/" + space + "/" + resourceType + "/all"
+		if resourceType == "deployments" {
+			return server + "/api/" + space + "/" + resourceType
+		} else {
+			return server + "/api/" + space + "/" + resourceType + "/all"
+		}
+	} else if resourceType == "deployments" {
+		// deployments is ann odd endpoint in that the default one returns all records, and there is no "/all" endpoint
+		return server + "/api/" + resourceType
 	} else {
 		return server + "/api/" + resourceType + "/all"
 	}
@@ -98,6 +105,41 @@ func getAllResources(resourceType string, server string, space string, apiKey st
 	}
 
 	return nil, err
+}
+
+// getDeployments returns the a list of deployments
+func getDeployments(server string, space string, apiKey string, projectId string, environmentId string) ([]PlainDeployment, error) {
+	var url string
+
+	if !empty(space) {
+		url = server + "/api/" + space + "/deployments"
+	} else {
+		url = server + "/api/deployments"
+	}
+
+	url += "?projects=" + projectId + "&environments=" + environmentId
+
+	body, err := createRequest(url, apiKey)
+	if err != nil {
+		return []PlainDeployment{}, err
+	}
+
+	var parsedResults PlainDeploymentItems
+	err = json.Unmarshal(body, &parsedResults)
+
+	if err == nil {
+		for index := 0; index < len(parsedResults.Items); index++ {
+			time, err := time.Parse(dateFormat, parsedResults.Items[index].Created)
+			if err == nil {
+				parsedResults.Items[index].CreatedParsed = time
+			} else {
+				log.DefaultLogger.Error("Failed to parse date " + parsedResults.Items[index].Created)
+			}
+		}
+		return parsedResults.Items, nil
+	}
+
+	return []PlainDeployment{}, err
 }
 
 // getRelease returns the details of a specific release

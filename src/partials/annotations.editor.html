@@ -1,21 +1,54 @@
 <div class="gf-form-group">
   <div class="gf-form-inline">
     <div class="gf-form gf-form--grow">
-      <input
-        class="gf-form-input"
-        placeholder="Space Name"
-        ng-model="ctrl.annotation.spaceName"
-      ></input>
-      <input
-        class="gf-form-input"
-        placeholder="Environment Name"
-        ng-model="ctrl.annotation.environmentName"
-      ></input>
-      <input
-        class="gf-form-input"
-        placeholder="Project Name"
-        ng-model="ctrl.annotation.projectName"
-      ></input>
+      <table cellpadding="10px">
+        <tr>
+          <td colspan="2">
+            <p>Deployment reports show the start and end time of completed deployments.</p>
+            <p>Deployments shows the start time of deployments that have completed or are in progress.</p>
+          </td>
+        </tr>
+        <tr>
+          <td>Annotation type</td>
+          <td>
+            <select
+              ng-model="ctrl.annotation.format">
+              <option value="deploymentreport">Deployment reports</option>
+              <option value="deployments">Deployments</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td>The space name</td>
+          <td>
+            <input
+              class="gf-form-input"
+              placeholder="Space Name"
+              ng-model="ctrl.annotation.spaceName"
+            ></input>
+          </td>
+        </tr>
+        <tr>
+          <td>The environment name</td>
+          <td>
+            <input
+              class="gf-form-input"
+              placeholder="Environment Name"
+              ng-model="ctrl.annotation.environmentName"
+            ></input>
+          </td>
+        </tr>
+        <tr>
+          <td>The project name</td>
+          <td>
+            <input
+              class="gf-form-input"
+              placeholder="Project Name"
+              ng-model="ctrl.annotation.projectName"
+            ></input>
+          </td>
+        </tr>
+      </table>
     </div>
   </div>
 </div>

@@ -10,6 +10,17 @@ type IdResource struct {
 	Id   string `json:Id`
 }
 
+type PlainDeploymentItems struct {
+	Items []PlainDeployment `json:Items`
+}
+
+type PlainDeployment struct {
+	Name          string `json:Name`
+	Id            string `json:Id`
+	Created       string `xml:"Created"`
+	CreatedParsed time.Time
+}
+
 type SpaceResource struct {
 	Name      string `json:Name`
 	Id        string `json:Id`

@@ -26,8 +26,13 @@ func newDatasource() datasource.ServeOpts {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/spaces", ds.handleSpaces)
-	router.HandleFunc("/Spaces-{[0-9]+}/{.+}", ds.handleResources)
+	// Spaces with names mapped to ids
+	router.HandleFunc("/spaces/nameid", ds.handleSpaces)
+	// Other entities with names mapped to ids
+	router.HandleFunc("/Spaces-{[0-9]+}/nameid/{.+}", ds.handleResources)
+	// Deployment entities with more complete details
+	router.HandleFunc("/Spaces-{[0-9]+}/deployments", ds.handleDeploymentResources)
+	// The deployments reporting endpoint
 	router.HandleFunc("/Spaces-{[0-9]+}/reporting/deployments", ds.handleReportingRequest)
 
 	return datasource.ServeOpts{

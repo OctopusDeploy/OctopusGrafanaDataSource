@@ -42,8 +42,25 @@ func (td *SampleDatasource) handleResources(rw http.ResponseWriter, req *http.Re
 
 	entities := map[string]string{}
 	resourceType := pathElements[len(pathElements)-1]
-	space := pathElements[len(pathElements)-2]
+	space := pathElements[len(pathElements)-3]
 	entities, _ = getAllResources(resourceType, server, space, apiKey)
+
+	json, _ := json.Marshal(entities)
+	rw.Write(json)
+}
+
+// handleResources returns a list of entities names as part of a resource call
+func (td *SampleDatasource) handleDeploymentResources(rw http.ResponseWriter, req *http.Request) {
+	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
+	server, apiKey := getConnectionDetails(pluginContext)
+	projectId := req.URL.Query().Get("projectId")
+	environmentId := req.URL.Query().Get("environmentId")
+
+	pathElements := strings.Split(req.URL.Path, "/")
+
+	var entities []PlainDeployment
+	space := pathElements[len(pathElements)-2]
+	entities, _ = getDeployments(server, space, apiKey, projectId, environmentId)
 
 	json, _ := json.Marshal(entities)
 	rw.Write(json)
