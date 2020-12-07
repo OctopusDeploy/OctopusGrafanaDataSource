@@ -97,7 +97,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     const from = options.range.from.format('YYYY-MM-DD HH:mm:ss');
     const to = options.range.to.format('YYYY-MM-DD HH:mm:ss');
 
-    if (query.format == 'deployments') {
+    if (query.format === 'deployments') {
       return this.getDeploymentAnnotation(datasourceId, spaceId, environmentId, projectId);
     } else {
       return this.getDeploymentReportAnnotation(datasourceId, spaceId, environmentId, projectId, from, to);
