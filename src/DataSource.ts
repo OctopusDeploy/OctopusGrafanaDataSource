@@ -48,7 +48,10 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
         }
         return [];
       })
-      .catch(() => []);
+      .catch(ex => {
+        console.log(ex);
+        return [];
+      });
   }
 
   async getUrl(entityName: string, spaceName: string, datasource: string) {
