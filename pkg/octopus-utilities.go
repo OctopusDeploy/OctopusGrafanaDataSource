@@ -39,6 +39,9 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 		return nil, err
 	}
 
+	log.DefaultLogger.Info("GET request to " + url + " responded with:")
+	log.DefaultLogger.Info(string(body[:]))
+
 	return body, nil
 }
 
