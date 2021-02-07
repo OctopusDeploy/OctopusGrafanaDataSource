@@ -5,9 +5,12 @@ import (
 	"time"
 )
 
-type IdResource struct {
-	Name string `json:Name`
-	Id   string `json:Id`
+// BaseResource represents the object holding the common details for any table query. Almost all
+// resources are a name/ID combination, but some others like releases are version/ID.
+type BaseResource struct {
+	Name    string `json:Name`
+	Id      string `json:Id`
+	Version string `json:Version`
 }
 
 type PlainDeploymentItems struct {

@@ -96,7 +96,7 @@ func getAllResources(resourceType string, server string, space string, apiKey st
 		return nil, err
 	}
 
-	var parsedResults []IdResource
+	var parsedResults []BaseResource
 	err = json.Unmarshal(body, &parsedResults)
 
 	if err == nil {
