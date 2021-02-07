@@ -52,8 +52,8 @@ func getResourceUrl(resourceType string, server string, space string) string {
 		} else {
 			return server + "/api/" + space + "/" + resourceType + "/all"
 		}
-	} else if resourceType == "deployments" {
-		// deployments is ann odd endpoint in that the default one returns all records, and there is no "/all" endpoint
+	} else if resourceType == "deployments" || resourceType == "releases" {
+		// deployments and releases are odd endpoints in that the default one returns all records, and there is no "/all" endpoint
 		return server + "/api/" + resourceType
 	} else {
 		return server + "/api/" + resourceType + "/all"
