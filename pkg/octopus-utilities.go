@@ -102,7 +102,11 @@ func getAllResources(resourceType string, server string, space string, apiKey st
 	if err == nil {
 		results := make(map[string]string)
 		for _, r := range parsedResults {
-			results[r.Name] = r.Id
+			if !empty(r.Version) {
+				results[r.Version] = r.Id
+			} else {
+				results[r.Name] = r.Id
+			}
 		}
 		return results, nil
 	}
