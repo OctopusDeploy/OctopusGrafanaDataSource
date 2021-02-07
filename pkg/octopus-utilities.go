@@ -47,7 +47,7 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 
 func getResourceUrl(resourceType string, server string, space string) string {
 	if !empty(space) && resourceType != "spaces" {
-		if resourceType == "deployments" {
+		if resourceType == "deployments" || resourceType == "releases" {
 			return server + "/api/" + space + "/" + resourceType
 		} else {
 			return server + "/api/" + space + "/" + resourceType + "/all"
