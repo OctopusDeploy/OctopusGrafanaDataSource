@@ -46,16 +46,32 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 }
 
 func getResourceUrl(resourceType string, server string, space string) string {
-	if !empty(space) && resourceType != "spaces" {
-		if resourceType == "deployments" || resourceType == "releases" {
+	nonSpaceResources := map[string]bool{
+		"spaces": true,
+		"users":  true,
+	}
+
+	noAllResource := map[string]bool{
+		"deployments": true,
+		"releases":    true,
+	}
+
+	_, isNonSpace := nonSpaceResources[resourceType]
+	_, isNoAllResource := noAllResource[resourceType]
+
+	if !empty(space) && !isNonSpace {
+		// spaced resources use the space path
+		if isNoAllResource {
 			return server + "/api/" + space + "/" + resourceType
 		} else {
 			return server + "/api/" + space + "/" + resourceType + "/all"
 		}
-	} else if resourceType == "deployments" || resourceType == "releases" {
-		// deployments and releases are odd endpoints in that the default one returns all records, and there is no "/all" endpoint
+	} else if isNoAllResource {
+		// deployments and releases are odd endpoints in that the default one returns all records,
+		// and there is no "/all" endpoint
 		return server + "/api/" + resourceType
 	} else {
+		// Other resources are not spaces scoped
 		return server + "/api/" + resourceType + "/all"
 	}
 }
