@@ -37,6 +37,7 @@ export const defaultQuery: Partial<MyQuery> = {
  */
 export interface MyDataSourceOptions extends DataSourceJsonData {
   server?: string;
+  cacheDuration?: string;
 }
 
 /**

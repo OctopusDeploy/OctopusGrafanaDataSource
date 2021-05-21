@@ -52,11 +52,11 @@ type SampleDatasource struct {
 }
 
 // getConnectionDetails returns the details for connecting to Octopus
-func getConnectionDetails(context backend.PluginContext) (string, string) {
+func getConnectionDetails(context backend.PluginContext) (string, string, string) {
 	var jsonData datasourceModel
 	json.Unmarshal(context.DataSourceInstanceSettings.JSONData, &jsonData)
 	apiKey := context.DataSourceInstanceSettings.DecryptedSecureJSONData["apiKey"]
-	return jsonData.Server, apiKey
+	return jsonData.Server, apiKey, jsonData.CacheDuration
 }
 
 // QueryData handles multiple queries and returns multiple responses.
@@ -64,29 +64,29 @@ func getConnectionDetails(context backend.PluginContext) (string, string) {
 // The QueryDataResponse contains a map of RefID to the response for each query, and each response
 // contains Frames ([]*Frame).
 func (td *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
-	server, apiKey := getConnectionDetails(req.PluginContext)
+	server, apiKey, cacheDuration := getConnectionDetails(req.PluginContext)
 
 	// get a mapping of space names to ids
-	spaces, err := getAllResources("spaces", server, "", apiKey)
+	spaces, err := getAllResources("spaces", server, "", apiKey, cacheDuration)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get an array of parsed queries, with links back to the original backend query request, and maps of entities and data
 	// from the Octopus REST API
-	queries, data, generalEntityData, err := prepareQueries(req, server, apiKey, spaces)
+	queries, data, generalEntityData, err := prepareQueries(req, server, apiKey, cacheDuration, spaces)
 	if err != nil {
 		return nil, err
 	}
 
 	// Use the cache of data we returned with the call to prepareQueries() to build the grafana response
-	response := td.processQueries(ctx, queries, server, apiKey, spaces, data, generalEntityData)
+	response := td.processQueries(ctx, queries, server, apiKey, cacheDuration, spaces, data, generalEntityData)
 
 	return response, nil
 }
 
 // processQueries converts the data returned from the Octopus REST APIs to data to be returned to grafana
-func (td *SampleDatasource) processQueries(ctx context.Context, queries []*queryModel, server string, apiKey string, spaces map[string]string, data map[string]*Deployments, generalEntityData map[string]map[string]string) (response *backend.QueryDataResponse) {
+func (td *SampleDatasource) processQueries(ctx context.Context, queries []*queryModel, server string, apiKey string, cacheDuration string, spaces map[string]string, data map[string]*Deployments, generalEntityData map[string]map[string]string) (response *backend.QueryDataResponse) {
 	// create response struct
 	response = backend.NewQueryDataResponse()
 
@@ -97,7 +97,7 @@ func (td *SampleDatasource) processQueries(ctx context.Context, queries []*query
 		if q.Format == "table" {
 			response.Responses[q.Query.RefID] = td.queryTable(ctx, *q, *data[q.OctopusQueryUrl])
 		} else if q.Format == "timeseries" {
-			response.Responses[q.Query.RefID] = td.query(ctx, *q, q.Query, *data[q.OctopusQueryUrl], server, q.SpaceName, spaces, apiKey)
+			response.Responses[q.Query.RefID] = td.query(ctx, *q, q.Query, *data[q.OctopusQueryUrl], server, q.SpaceName, spaces, apiKey, cacheDuration)
 		} else {
 			// Any other format is the name of a resource that has an "all" endpoint in Octopus, which we retrieve as a table
 			response.Responses[q.Query.RefID], _ = td.queryResources(generalEntityData[q.OctopusQueryUrl], q.Format)
@@ -108,9 +108,9 @@ func (td *SampleDatasource) processQueries(ctx context.Context, queries []*query
 }
 
 // getSpaces returns a map of space names to ids
-func getSpaces(server string, apiKey string) (spaces map[string]string, err error) {
+func getSpaces(server string, apiKey string, cacheDuration string) (spaces map[string]string, err error) {
 	// get a mapping of space names to ids
-	spaces, err = getAllResources("spaces", server, "", apiKey)
+	spaces, err = getAllResources("spaces", server, "", apiKey, cacheDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func getSpaces(server string, apiKey string) (spaces map[string]string, err erro
 }
 
 // getMaps returns maps of space names to project names to ids, and maps of space name to environment names to ids
-func getMaps(req *backend.QueryDataRequest, server string, apiKey string, spaces map[string]string) (projectsMap map[string]map[string]string, environmentsMap map[string]map[string]string, err error) {
+func getMaps(req *backend.QueryDataRequest, server string, apiKey string, cacheDuration string, spaces map[string]string) (projectsMap map[string]map[string]string, environmentsMap map[string]map[string]string, err error) {
 	projectsMap = make(map[string]map[string]string)
 	environmentsMap = make(map[string]map[string]string)
 
@@ -127,12 +127,12 @@ func getMaps(req *backend.QueryDataRequest, server string, apiKey string, spaces
 		qm, _ := getQueryModel(req.Queries[i].JSON)
 
 		if _, ok := projectsMap[qm.SpaceName]; !ok {
-			projects, _ := getAllResources("projects", server, spaces[qm.SpaceName], apiKey)
+			projects, _ := getAllResources("projects", server, spaces[qm.SpaceName], apiKey, cacheDuration)
 			projectsMap[qm.SpaceName] = projects
 		}
 
 		if _, ok := environmentsMap[qm.SpaceName]; !ok {
-			environments, _ := getAllResources("environments", server, spaces[qm.SpaceName], apiKey)
+			environments, _ := getAllResources("environments", server, spaces[qm.SpaceName], apiKey, cacheDuration)
 			environmentsMap[qm.SpaceName] = environments
 		}
 	}
@@ -141,15 +141,15 @@ func getMaps(req *backend.QueryDataRequest, server string, apiKey string, spaces
 }
 
 // prepareQueries looks through the queries, groups Octopus API calls to improve performance and remove redundant API calls, and returns the raw Octopus data
-func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string, spaces map[string]string) (queries []*queryModel, data map[string]*Deployments, generalEntityData map[string]map[string]string, err error) {
+func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string, cacheDuration string, spaces map[string]string) (queries []*queryModel, data map[string]*Deployments, generalEntityData map[string]map[string]string, err error) {
 	earliestDate, latestDate := getQueryDetails(req)
 
-	spaces, err = getSpaces(server, apiKey)
+	spaces, err = getSpaces(server, apiKey, cacheDuration)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	projectsMap, environmentsMap, err := getMaps(req, server, apiKey, spaces)
+	projectsMap, environmentsMap, err := getMaps(req, server, apiKey, cacheDuration, spaces)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -192,7 +192,7 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 
 			// If the query url has not been accessed, hit the API to get the deployments.
 			if _, ok := data[qm.OctopusQueryUrl]; !ok {
-				xmlData, err := createRequest(qm.OctopusQueryUrl, apiKey)
+				xmlData, err := createRequest(qm.OctopusQueryUrl, apiKey, cacheDuration)
 				if err == nil {
 					// populate the data map with the results of the API query
 					data[qm.OctopusQueryUrl] = &Deployments{}
@@ -206,7 +206,7 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 			qm.OctopusQueryUrl = url
 			// Get the entities if we haven't looked them up already
 			if _, ok := generalEntityData[url]; !ok {
-				entities, _ := getAllResources(qm.Format, server, spaces[qm.SpaceName], apiKey)
+				entities, _ := getAllResources(qm.Format, server, spaces[qm.SpaceName], apiKey, cacheDuration)
 				// populate the generalEntityData map with the results of the API query
 				generalEntityData[url] = entities
 			}
@@ -221,9 +221,9 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 // datasource configuration page which allows users to verify that
 // a datasource is working as expected.
 func (td *SampleDatasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
-	path, apiKey := getConnectionDetails(req.PluginContext)
+	path, apiKey, cacheDuration := getConnectionDetails(req.PluginContext)
 
-	_, err := createRequest(path+"/api", apiKey)
+	_, err := createRequest(path+"/api", apiKey, cacheDuration)
 
 	if err != nil {
 		return &backend.CheckHealthResult{

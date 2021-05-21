@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"github.com/dgraph-io/ristretto"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"io/ioutil"
 	"net/http"
@@ -11,8 +12,36 @@ import (
 	"time"
 )
 
-func createRequest(url string, apiKey string) ([]byte, error) {
-	log.DefaultLogger.Info("GET request to " + url)
+// for API calls where we reasonably expect no changes (like getting a release), set a long cache duration
+var longCache = "24h"
+
+// any failed http request will be cached for a short time as a circuit breaker
+var failedDuration, _ = time.ParseDuration("1m")
+var cache, cacheErr = ristretto.NewCache(&ristretto.Config{
+	NumCounters: 10,     // number of keys to track frequency of.
+	MaxCost:     1 << 8, // maximum cost of cache (100mb).
+	BufferItems: 64,     // number of keys per Get buffer.
+})
+
+func createRequest(url string, apiKey string, cacheDuration string) ([]byte, error) {
+	log.DefaultLogger.Debug("GET request to " + url)
+
+	// load the cached result
+	if cacheErr == nil {
+		value, found := cache.Get(url)
+		if found {
+			log.DefaultLogger.Debug("Cache hit on " + url)
+
+			if value == nil {
+				log.DefaultLogger.Error("Cached response was nil. This is a circuit breaker for a failed request to " + url)
+				return nil, errors.New("Cached response was nil. This is a circuit breaker for a failed request to " + url)
+			}
+
+			return value.([]byte), nil
+		}
+	} else {
+		log.DefaultLogger.Error("Caching was not enabled because " + cacheErr.Error() + ".")
+	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -30,7 +59,14 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, errors.New("Response code was " + strconv.Itoa(resp.StatusCode))
+
+		if cacheErr == nil && !empty(cacheDuration) {
+			cache.SetWithTTL(url, nil, 1, failedDuration)
+		}
+
+		errorCode := strconv.Itoa(resp.StatusCode)
+		log.DefaultLogger.Error("Response code to " + url + " was " + errorCode)
+		return nil, errors.New("Response code to " + url + " was " + errorCode)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -41,6 +77,16 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 
 	log.DefaultLogger.Debug("GET request to " + url + " responded with:")
 	log.DefaultLogger.Debug(string(body[:]))
+
+	// cache the result
+	if cacheErr == nil && !empty(cacheDuration) {
+		duration, durationError := time.ParseDuration(cacheDuration)
+		if durationError == nil {
+			cache.SetWithTTL(url, body, 1, duration)
+		} else {
+			log.DefaultLogger.Error("Could not parse duration: " + cacheDuration + ". Caching is disabled.")
+		}
+	}
 
 	return body, nil
 }
@@ -77,10 +123,10 @@ func getResourceUrl(resourceType string, server string, space string) string {
 }
 
 // getSpaceResources calls the "all" API endpoint to return all available resources in a name to id map
-func getSpaceResources(server string, apiKey string) (map[string]string, error) {
+func getSpaceResources(server string, apiKey string, cacheDuration string) (map[string]string, error) {
 	url := getResourceUrl("spaces", server, "")
 
-	body, err := createRequest(url, apiKey)
+	body, err := createRequest(url, apiKey, cacheDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -104,10 +150,10 @@ func getSpaceResources(server string, apiKey string) (map[string]string, error) 
 }
 
 // getAllResources calls the "all" API endpoint to return all available resources in a name to id map
-func getAllResources(resourceType string, server string, space string, apiKey string) (map[string]string, error) {
+func getAllResources(resourceType string, server string, space string, apiKey string, cacheDuration string) (map[string]string, error) {
 	url := getResourceUrl(resourceType, server, space)
 
-	body, err := createRequest(url, apiKey)
+	body, err := createRequest(url, apiKey, cacheDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +177,7 @@ func getAllResources(resourceType string, server string, space string, apiKey st
 }
 
 // getDeployments returns the a list of deployments
-func getDeployments(server string, space string, apiKey string, projectId string, environmentId string) ([]PlainDeployment, error) {
+func getDeployments(server string, space string, apiKey string, cacheDuration string, projectId string, environmentId string) ([]PlainDeployment, error) {
 	var url string
 
 	if !empty(space) {
@@ -142,7 +188,7 @@ func getDeployments(server string, space string, apiKey string, projectId string
 
 	url += "?projects=" + projectId + "&environments=" + environmentId
 
-	body, err := createRequest(url, apiKey)
+	body, err := createRequest(url, apiKey, cacheDuration)
 	if err != nil {
 		return []PlainDeployment{}, err
 	}
@@ -175,7 +221,7 @@ func getRelease(releaseId string, server string, space string, apiKey string) (R
 		url = server + "/api/releases/" + releaseId
 	}
 
-	body, err := createRequest(url, apiKey)
+	body, err := createRequest(url, apiKey, longCache)
 	if err != nil {
 		return Release{}, err
 	}

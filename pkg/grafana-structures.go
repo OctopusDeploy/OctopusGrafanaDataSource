@@ -26,6 +26,7 @@ type queryModel struct {
 }
 
 type datasourceModel struct {
-	Server string
-	Format string
+	Server        string
+	Format        string
+	CacheDuration string
 }
