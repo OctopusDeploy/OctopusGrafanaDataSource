@@ -13,7 +13,10 @@ import (
 )
 
 // for API calls where we reasonably expect no changes (like getting a release), set a long cache duration
-var longCache = "1d"
+var longCache = "24h"
+
+// any failed http request will be cached for a short time as a circuit breaker
+var failedDuration, _ = time.ParseDuration("1m")
 var cache, cacheErr = ristretto.NewCache(&ristretto.Config{
 	NumCounters: 10,     // number of keys to track frequency of.
 	MaxCost:     1 << 8, // maximum cost of cache (100mb).
@@ -28,6 +31,12 @@ func createRequest(url string, apiKey string, cacheDuration string) ([]byte, err
 		value, found := cache.Get(url)
 		if found {
 			log.DefaultLogger.Debug("Cache hit on " + url)
+
+			if value == nil {
+				log.DefaultLogger.Error("Cached response was nil. This is a circuit breaker for a failed request to " + url)
+				return nil, errors.New("Cached response was nil. This is a circuit breaker for a failed request to " + url)
+			}
+
 			return value.([]byte), nil
 		}
 	} else {
@@ -50,7 +59,14 @@ func createRequest(url string, apiKey string, cacheDuration string) ([]byte, err
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, errors.New("Response code was " + strconv.Itoa(resp.StatusCode))
+
+		if cacheErr == nil && !empty(cacheDuration) {
+			cache.SetWithTTL(url, nil, 1, failedDuration)
+		}
+
+		errorCode := strconv.Itoa(resp.StatusCode)
+		log.DefaultLogger.Error("Response code to " + url + " was " + errorCode)
+		return nil, errors.New("Response code to " + url + " was " + errorCode)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
