@@ -98,7 +98,7 @@ func (td *SampleDatasource) query(ctx context.Context, qm queryModel, query back
 						// get the cycle time, or the time from when the release was created.
 						// note we can only get this information if the release is still in the database, as the release creation
 						// date is not stored by the reporting endpoint
-						releaseDetails, err := getRelease(d.ReleaseId, server, spaces[space], apiKey, cacheDuration)
+						releaseDetails, err := getRelease(d.ReleaseId, server, spaces[space], apiKey)
 
 						if err == nil {
 							diff := parseTime(d.CompletedTime).Sub(releaseDetails.AssembledDate).Seconds()

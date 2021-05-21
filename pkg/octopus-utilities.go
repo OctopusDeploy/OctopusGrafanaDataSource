@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// for API calls where we reasonably expect no changes (like getting a release), set a long cache duration
+var longCache = "1d"
 var cache, cacheErr = ristretto.NewCache(&ristretto.Config{
 	NumCounters: 10,     // number of keys to track frequency of.
 	MaxCost:     1 << 8, // maximum cost of cache (100mb).
@@ -19,7 +21,7 @@ var cache, cacheErr = ristretto.NewCache(&ristretto.Config{
 })
 
 func createRequest(url string, apiKey string, cacheDuration string) ([]byte, error) {
-	log.DefaultLogger.Info("GET request to " + url)
+	log.DefaultLogger.Debug("GET request to " + url)
 
 	// load the cached result
 	if cacheErr == nil {
@@ -194,7 +196,7 @@ func getDeployments(server string, space string, apiKey string, cacheDuration st
 }
 
 // getRelease returns the details of a specific release
-func getRelease(releaseId string, server string, space string, apiKey string, cacheDuration string) (Release, error) {
+func getRelease(releaseId string, server string, space string, apiKey string) (Release, error) {
 	var url string
 
 	if !empty(space) {
@@ -203,7 +205,7 @@ func getRelease(releaseId string, server string, space string, apiKey string, ca
 		url = server + "/api/releases/" + releaseId
 	}
 
-	body, err := createRequest(url, apiKey, cacheDuration)
+	body, err := createRequest(url, apiKey, longCache)
 	if err != nil {
 		return Release{}, err
 	}
