@@ -18,7 +18,7 @@ var longCache = "24h"
 // any failed http request will be cached for a short time as a circuit breaker
 var failedDuration, _ = time.ParseDuration("1m")
 var cache, cacheErr = ristretto.NewCache(&ristretto.Config{
-	NumCounters: 10,     // number of keys to track frequency of.
+	NumCounters: 1000,   // number of keys to track frequency of.
 	MaxCost:     1 << 8, // maximum cost of cache (100mb).
 	BufferItems: 64,     // number of keys per Get buffer.
 })
