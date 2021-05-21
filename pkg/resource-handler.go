@@ -13,13 +13,13 @@ import (
 // handleProjectsMapping returns a map of project names to ids as part of a resource call
 func (ds *SampleDatasource) handleSpaceEntityMapping(rw http.ResponseWriter, req *http.Request, entityType string) {
 	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
-	server, apiKey := getConnectionDetails(pluginContext)
+	server, apiKey, cacheDuration := getConnectionDetails(pluginContext)
 	pathElements := strings.Split(req.URL.Path, "/")
 	spaceId := ""
 	if len(pathElements) == 2 {
 		spaceId = pathElements[len(pathElements)-1]
 	}
-	entities, _ := getAllResources("spaces", server, spaceId, apiKey)
+	entities, _ := getAllResources("spaces", server, spaceId, apiKey, cacheDuration)
 	json, _ := json.Marshal(entities)
 	rw.Write(json)
 }
@@ -27,8 +27,8 @@ func (ds *SampleDatasource) handleSpaceEntityMapping(rw http.ResponseWriter, req
 // handleSpaces returns a list of all the space names as part of a resource call
 func (td *SampleDatasource) handleSpaces(rw http.ResponseWriter, req *http.Request) {
 	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
-	server, apiKey := getConnectionDetails(pluginContext)
-	entities, _ := getSpaceResources(server, apiKey)
+	server, apiKey, cacheDuration := getConnectionDetails(pluginContext)
+	entities, _ := getSpaceResources(server, apiKey, cacheDuration)
 	json, _ := json.Marshal(entities)
 	rw.Write(json)
 }
@@ -36,14 +36,14 @@ func (td *SampleDatasource) handleSpaces(rw http.ResponseWriter, req *http.Reque
 // handleResources returns a list of entities names as part of a resource call
 func (td *SampleDatasource) handleResources(rw http.ResponseWriter, req *http.Request) {
 	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
-	server, apiKey := getConnectionDetails(pluginContext)
+	server, apiKey, cacheDuration := getConnectionDetails(pluginContext)
 
 	pathElements := strings.Split(req.URL.Path, "/")
 
 	entities := map[string]string{}
 	resourceType := pathElements[len(pathElements)-1]
 	space := pathElements[len(pathElements)-3]
-	entities, _ = getAllResources(resourceType, server, space, apiKey)
+	entities, _ = getAllResources(resourceType, server, space, apiKey, cacheDuration)
 
 	json, _ := json.Marshal(entities)
 	rw.Write(json)
@@ -52,7 +52,7 @@ func (td *SampleDatasource) handleResources(rw http.ResponseWriter, req *http.Re
 // handleResources returns a list of entities names as part of a resource call
 func (td *SampleDatasource) handleDeploymentResources(rw http.ResponseWriter, req *http.Request) {
 	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
-	server, apiKey := getConnectionDetails(pluginContext)
+	server, apiKey, cacheDuration := getConnectionDetails(pluginContext)
 	projectId := req.URL.Query().Get("projectId")
 	environmentId := req.URL.Query().Get("environmentId")
 
@@ -60,7 +60,7 @@ func (td *SampleDatasource) handleDeploymentResources(rw http.ResponseWriter, re
 
 	var entities []PlainDeployment
 	space := pathElements[len(pathElements)-2]
-	entities, _ = getDeployments(server, space, apiKey, projectId, environmentId)
+	entities, _ = getDeployments(server, space, apiKey, cacheDuration, projectId, environmentId)
 
 	json, _ := json.Marshal(entities)
 	rw.Write(json)
@@ -70,7 +70,7 @@ func (td *SampleDatasource) handleDeploymentResources(rw http.ResponseWriter, re
 // the Octopus XML endpoint, processes the XML, and returns the results as JSON.
 func (td *SampleDatasource) handleReportingRequest(rw http.ResponseWriter, req *http.Request) {
 	pluginContext := httpadapter.PluginConfigFromContext(req.Context())
-	server, apiKey := getConnectionDetails(pluginContext)
+	server, apiKey, cacheDuration := getConnectionDetails(pluginContext)
 
 	pathElements := strings.Split(req.URL.Path, "/")
 	spaceId := pathElements[len(pathElements)-3]
@@ -88,7 +88,7 @@ func (td *SampleDatasource) handleReportingRequest(rw http.ResponseWriter, req *
 
 	// populate the data map with the results of the API query
 	deployments := &Deployments{}
-	xmlData, err := createRequest(query, apiKey)
+	xmlData, err := createRequest(query, apiKey, cacheDuration)
 	if err == nil {
 		xml.Unmarshal(xmlData, deployments)
 	}

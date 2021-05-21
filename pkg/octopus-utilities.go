@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"github.com/dgraph-io/ristretto"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"io/ioutil"
 	"net/http"
@@ -11,8 +12,25 @@ import (
 	"time"
 )
 
-func createRequest(url string, apiKey string) ([]byte, error) {
+var cache, cacheErr = ristretto.NewCache(&ristretto.Config{
+	NumCounters: 10,     // number of keys to track frequency of.
+	MaxCost:     1 << 8, // maximum cost of cache (100mb).
+	BufferItems: 64,     // number of keys per Get buffer.
+})
+
+func createRequest(url string, apiKey string, cacheDuration string) ([]byte, error) {
 	log.DefaultLogger.Info("GET request to " + url)
+
+	// load the cached result
+	if cacheErr == nil {
+		value, found := cache.Get(url)
+		if found {
+			log.DefaultLogger.Debug("Cache hit on " + url)
+			return value.([]byte), nil
+		}
+	} else {
+		log.DefaultLogger.Error("Caching was not enabled because " + cacheErr.Error() + ".")
+	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -41,6 +59,16 @@ func createRequest(url string, apiKey string) ([]byte, error) {
 
 	log.DefaultLogger.Debug("GET request to " + url + " responded with:")
 	log.DefaultLogger.Debug(string(body[:]))
+
+	// cache the result
+	if cacheErr == nil && !empty(cacheDuration) {
+		duration, durationError := time.ParseDuration(cacheDuration)
+		if durationError == nil {
+			cache.SetWithTTL(url, body, 1, duration)
+		} else {
+			log.DefaultLogger.Error("Could not parse duration: " + cacheDuration + ". Caching is disabled.")
+		}
+	}
 
 	return body, nil
 }
@@ -77,10 +105,10 @@ func getResourceUrl(resourceType string, server string, space string) string {
 }
 
 // getSpaceResources calls the "all" API endpoint to return all available resources in a name to id map
-func getSpaceResources(server string, apiKey string) (map[string]string, error) {
+func getSpaceResources(server string, apiKey string, cacheDuration string) (map[string]string, error) {
 	url := getResourceUrl("spaces", server, "")
 
-	body, err := createRequest(url, apiKey)
+	body, err := createRequest(url, apiKey, cacheDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -104,10 +132,10 @@ func getSpaceResources(server string, apiKey string) (map[string]string, error) 
 }
 
 // getAllResources calls the "all" API endpoint to return all available resources in a name to id map
-func getAllResources(resourceType string, server string, space string, apiKey string) (map[string]string, error) {
+func getAllResources(resourceType string, server string, space string, apiKey string, cacheDuration string) (map[string]string, error) {
 	url := getResourceUrl(resourceType, server, space)
 
-	body, err := createRequest(url, apiKey)
+	body, err := createRequest(url, apiKey, cacheDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +159,7 @@ func getAllResources(resourceType string, server string, space string, apiKey st
 }
 
 // getDeployments returns the a list of deployments
-func getDeployments(server string, space string, apiKey string, projectId string, environmentId string) ([]PlainDeployment, error) {
+func getDeployments(server string, space string, apiKey string, cacheDuration string, projectId string, environmentId string) ([]PlainDeployment, error) {
 	var url string
 
 	if !empty(space) {
@@ -142,7 +170,7 @@ func getDeployments(server string, space string, apiKey string, projectId string
 
 	url += "?projects=" + projectId + "&environments=" + environmentId
 
-	body, err := createRequest(url, apiKey)
+	body, err := createRequest(url, apiKey, cacheDuration)
 	if err != nil {
 		return []PlainDeployment{}, err
 	}
@@ -166,7 +194,7 @@ func getDeployments(server string, space string, apiKey string, projectId string
 }
 
 // getRelease returns the details of a specific release
-func getRelease(releaseId string, server string, space string, apiKey string) (Release, error) {
+func getRelease(releaseId string, server string, space string, apiKey string, cacheDuration string) (Release, error) {
 	var url string
 
 	if !empty(space) {
@@ -175,7 +203,7 @@ func getRelease(releaseId string, server string, space string, apiKey string) (R
 		url = server + "/api/releases/" + releaseId
 	}
 
-	body, err := createRequest(url, apiKey)
+	body, err := createRequest(url, apiKey, cacheDuration)
 	if err != nil {
 		return Release{}, err
 	}
