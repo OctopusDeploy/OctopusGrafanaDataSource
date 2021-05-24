@@ -18,9 +18,20 @@ var longCache = "24h"
 // any failed http request will be cached for a short time as a circuit breaker
 var failedDuration, _ = time.ParseDuration("1m")
 var cache, cacheErr = ristretto.NewCache(&ristretto.Config{
-	NumCounters: 1000,   // number of keys to track frequency of.
-	MaxCost:     1 << 8, // maximum cost of cache (100mb).
-	BufferItems: 64,     // number of keys per Get buffer.
+	/*
+	    NumCounters is the number of 4-bit access counters to keep for admission and eviction.
+	  We've seen good performance in setting this to 10x the number of items you expect to keep in the cache when full.
+	*/
+	NumCounters: 10000,
+	/*
+	  MaxCost is how eviction decisions are made. For example, if MaxCost is 100 and a new item with a
+	  cost of 1 increases total cache cost to 101, 1 item will be evicted.
+	*/
+	MaxCost: 1 << 8, // maximum cost of cache (100mb).
+	/*
+	  BufferItems is the size of the Get buffers. The best value we've found for this is 64.
+	*/
+	BufferItems: 64, // number of keys per Get buffer.
 })
 
 func createRequest(url string, apiKey string, cacheDuration string) ([]byte, error) {
