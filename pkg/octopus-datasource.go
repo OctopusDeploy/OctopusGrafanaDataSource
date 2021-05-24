@@ -192,7 +192,8 @@ func prepareQueries(req *backend.QueryDataRequest, server string, apiKey string,
 
 			// If the query url has not been accessed, hit the API to get the deployments.
 			if _, ok := data[qm.OctopusQueryUrl]; !ok {
-				xmlData, err := createRequest(qm.OctopusQueryUrl, apiKey, cacheDuration)
+				// the deployments endpoint doesn't change, so we can assume a long cache lifetime
+				xmlData, err := createRequest(qm.OctopusQueryUrl, apiKey, longCache)
 				if err == nil {
 					// populate the data map with the results of the API query
 					data[qm.OctopusQueryUrl] = &Deployments{}
