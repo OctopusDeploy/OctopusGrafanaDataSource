@@ -10,7 +10,8 @@ import (
 )
 
 // Keeps the last range of deployments that were requested. This allows us to only query
-// the new deployments that fall within the requested range.
+// the new deployments that fall within the requested range, because calling
+// /api/reporting/deployments/xml can be expensive.
 var deploymentsCache = []Deployment{}
 
 // handleProjectsMapping returns a map of project names to ids as part of a resource call
