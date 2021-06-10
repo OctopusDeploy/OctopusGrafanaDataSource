@@ -3,12 +3,15 @@ package main
 import (
 	"encoding/json"
 	"encoding/xml"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/resource/httpadapter"
 	"net/http"
 	"strings"
 	"time"
 )
+
+// Keeps the last range of deployments that were requested. This allows us to only query
+// the new deployments that fall within the requested range.
+var deploymentsCache = []Deployment{}
 
 // handleProjectsMapping returns a map of project names to ids as part of a resource call
 func (ds *SampleDatasource) handleSpaceEntityMapping(rw http.ResponseWriter, req *http.Request, entityType string) {
@@ -79,13 +82,31 @@ func (td *SampleDatasource) handleReportingRequest(rw http.ResponseWriter, req *
 	earliestDate, _ := time.Parse(octopusDateFormat, req.URL.Query().Get("fromCompletedTime"))
 	latestDate, _ := time.Parse(octopusDateFormat, req.URL.Query().Get("toCompletedTime"))
 
-	query := buildReportingQueryUrl(server, spaceId, environmentId, projectId, earliestDate, latestDate)
+	// Prepend any deployments before the earliest cached record
+	if len(deploymentsCache) != 0 && deploymentsCache[0].StartTimeParsed.After(earliestDate) {
+		query := buildReportingQueryUrl(server, spaceId, environmentId, projectId, earliestDate, deploymentsCache[0].StartTimeParsed)
+		deployments := getReturnAndProcessDeployments(query, apiKey, cacheDuration)
+		deploymentsCache = append(deployments, deploymentsCache...)
+	}
 
-	log.DefaultLogger.Info("Annotation project ID: " + req.URL.Query().Get("projectId"))
-	log.DefaultLogger.Info("Annotation environment ID: " + req.URL.Query().Get("environmentId"))
-	log.DefaultLogger.Info("Annotation from time: " + req.URL.Query().Get("fromCompletedTime"))
-	log.DefaultLogger.Info("Annotation to time: " + req.URL.Query().Get("toCompletedTime"))
+	// Append any deployments after the latest record
+	if len(deploymentsCache) != 0 && deploymentsCache[len(deploymentsCache)-1].CompletedTimeParsed.Before(latestDate) {
+		query := buildReportingQueryUrl(server, spaceId, environmentId, projectId, deploymentsCache[len(deploymentsCache)-1].CompletedTimeParsed, latestDate)
+		deployments := getReturnAndProcessDeployments(query, apiKey, cacheDuration)
+		deploymentsCache = append(deploymentsCache, deployments...)
+	}
 
+	// Trim the cache to the new range
+	deploymentsCache = returnDeploymentsWithinRange(deploymentsCache, earliestDate, latestDate)
+
+	deployment := Deployments{Deployments: deploymentsCache}
+
+	// Return JSON to the front end
+	json, _ := json.Marshal(deployment)
+	rw.Write(json)
+}
+
+func getReturnAndProcessDeployments(query string, apiKey string, cacheDuration string) []Deployment {
 	// populate the data map with the results of the API query
 	deployments := &Deployments{}
 	xmlData, err := createRequest(query, apiKey, cacheDuration)
@@ -95,7 +116,28 @@ func (td *SampleDatasource) handleReportingRequest(rw http.ResponseWriter, req *
 
 	parseTimes(*deployments)
 
-	// Return JSON to the front end
-	json, _ := json.Marshal(deployments)
-	rw.Write(json)
+	return deployments.Deployments
+}
+
+func returnDeploymentsWithinRange(deployments []Deployment, startTime time.Time, endTime time.Time) []Deployment {
+	values := []Deployment{}
+	for i := range deployments {
+		if !startTime.After(deployments[i].StartTimeParsed) && !endTime.Before(deployments[i].CompletedTimeParsed) {
+			// A sanity check to weed out duplicate deployment IDs. This catches the possibility
+			// that some query dates exactly overlapped.
+			if !deploymentsContains(values, deployments[i].DeploymentId) {
+				values = append(values, deployments[i])
+			}
+		}
+	}
+	return values
+}
+
+func deploymentsContains(deployments []Deployment, deploymentId string) bool {
+	for _, d := range deployments {
+		if d.DeploymentId == deploymentId {
+			return true
+		}
+	}
+	return false
 }
