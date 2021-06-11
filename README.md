@@ -90,3 +90,10 @@ A sample dashboard displaying data returned by this plugin can be found on the [
 
 ![image](https://user-images.githubusercontent.com/160104/99312462-d13dbb80-28a9-11eb-9977-1fc89c3348b0.png)
 
+# Caching
+
+Calling the Octopus API endpoints like /api/reporting/deployments/xml can be expensive, especially if there are many deployments to return and the Grafana date range is quite large.
+
+The plugin will cache results from /api/reporting/deployments/xml to improve performace. The first request will return all the results, but subsequent requests will only query Octopus for results before and after those that were cached. So a Grafana dashboard set to refresh every 5 minutes will result in queries to Octopus for the last 5 minutes worth of data.
+
+The datasource also exposes a field to define a cache duration. This applies to entities like projects, environments, channels etc. The cache duration can be left blank, in which case all these entities are requested from Octopus every time. Setting a duration can improve performance where many people are viewing the same dashboard, as only the first request will require an API call to Octopus, and others will share the same result.
