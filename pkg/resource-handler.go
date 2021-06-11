@@ -12,7 +12,7 @@ import (
 // Keeps the last range of deployments that were requested. This allows us to only query
 // the new deployments that fall within the requested range, because calling
 // /api/reporting/deployments/xml can be expensive.
-var deploymentsCache = []Deployment{}
+var deploymentsCache = map[string][]Deployment{}
 
 // handleProjectsMapping returns a map of project names to ids as part of a resource call
 func (ds *SampleDatasource) handleSpaceEntityMapping(rw http.ResponseWriter, req *http.Request, entityType string) {
@@ -83,24 +83,28 @@ func (td *SampleDatasource) handleReportingRequest(rw http.ResponseWriter, req *
 	earliestDate, _ := time.Parse(octopusDateFormat, req.URL.Query().Get("fromCompletedTime"))
 	latestDate, _ := time.Parse(octopusDateFormat, req.URL.Query().Get("toCompletedTime"))
 
+	if _, ok := deploymentsCache[spaceId]; ok {
+		deploymentsCache[spaceId] = []Deployment{}
+	}
+
 	// Prepend any deployments before the earliest cached record
-	if len(deploymentsCache) != 0 && deploymentsCache[0].StartTimeParsed.After(earliestDate) {
-		query := buildReportingQueryUrl(server, spaceId, environmentId, projectId, earliestDate, deploymentsCache[0].StartTimeParsed)
+	if len(deploymentsCache) != 0 && deploymentsCache[spaceId][0].StartTimeParsed.After(earliestDate) {
+		query := buildReportingQueryUrl(server, spaceId, environmentId, projectId, earliestDate, deploymentsCache[spaceId][0].StartTimeParsed)
 		deployments := getReturnAndProcessDeployments(query, apiKey, cacheDuration)
-		deploymentsCache = append(deployments, deploymentsCache...)
+		deploymentsCache[spaceId] = append(deployments, deploymentsCache[spaceId]...)
 	}
 
 	// Append any deployments after the latest record
-	if len(deploymentsCache) != 0 && deploymentsCache[len(deploymentsCache)-1].CompletedTimeParsed.Before(latestDate) {
-		query := buildReportingQueryUrl(server, spaceId, environmentId, projectId, deploymentsCache[len(deploymentsCache)-1].CompletedTimeParsed, latestDate)
+	if len(deploymentsCache) != 0 && deploymentsCache[spaceId][len(deploymentsCache)-1].CompletedTimeParsed.Before(latestDate) {
+		query := buildReportingQueryUrl(server, spaceId, environmentId, projectId, deploymentsCache[spaceId][len(deploymentsCache)-1].CompletedTimeParsed, latestDate)
 		deployments := getReturnAndProcessDeployments(query, apiKey, cacheDuration)
-		deploymentsCache = append(deploymentsCache, deployments...)
+		deploymentsCache[spaceId] = append(deploymentsCache[spaceId], deployments...)
 	}
 
 	// Trim the cache to the new range
-	deploymentsCache = returnDeploymentsWithinRange(deploymentsCache, earliestDate, latestDate)
+	deploymentsCache[spaceId] = returnDeploymentsWithinRange(deploymentsCache[spaceId], earliestDate, latestDate)
 
-	deployment := Deployments{Deployments: deploymentsCache}
+	deployment := Deployments{Deployments: deploymentsCache[spaceId]}
 
 	// Return JSON to the front end
 	json, _ := json.Marshal(deployment)
