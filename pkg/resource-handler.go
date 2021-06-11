@@ -83,7 +83,7 @@ func (td *SampleDatasource) handleReportingRequest(rw http.ResponseWriter, req *
 	earliestDate, _ := time.Parse(octopusDateFormat, req.URL.Query().Get("fromCompletedTime"))
 	latestDate, _ := time.Parse(octopusDateFormat, req.URL.Query().Get("toCompletedTime"))
 
-	if _, ok := deploymentsCache[spaceId]; ok {
+	if _, ok := deploymentsCache[spaceId]; !ok {
 		deploymentsCache[spaceId] = []Deployment{}
 	}
 
