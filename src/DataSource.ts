@@ -196,8 +196,19 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     return entities[entityNameOrDefault] || '';
   }
 
-  async datasourceNameToId(datasource: string): Promise<string> {
-    return await fetch(`api/datasources/id/` + encodeURI(datasource))
+  async datasourceNameToId(datasource: string | { uid: string; type: string }): Promise<string> {
+    /*
+      In previous versions of Grafana, the datasource was just a string, and
+      had to be resolved to an ID. Newer versions return an object with
+      a uid and type.
+     */
+    if (typeof datasource === 'string') {
+      return await fetch(`api/datasources/id/` + encodeURI(datasource))
+        .then(response => response.json())
+        .then(json => json.id);
+    }
+
+    return await fetch(`api/datasources/uid/` + encodeURI(datasource.uid))
       .then(response => response.json())
       .then(json => json.id);
   }
