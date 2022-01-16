@@ -54,7 +54,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
       });
   }
 
-  async getUrl(entityName: string, spaceName: string, datasource: string) {
+  async getUrl(entityName: string, spaceName: string, datasource: string | { uid: string; type: string }) {
     const datasourceId = await this.datasourceNameToId(datasource);
 
     if (entityName === 'spaces') {
@@ -175,7 +175,12 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
    * @param datasource The name of the datasource.
    * @return The ID of the entity.
    */
-  async getEntityId(spaceName: string, entityType: string, entityName: string, datasource: string): Promise<string> {
+  async getEntityId(
+    spaceName: string,
+    entityType: string,
+    entityName: string,
+    datasource: string | { uid: string; type: string }
+  ): Promise<string> {
     const entityNameFixed = getTemplateSrv().replace(entityName);
     const url = await this.getUrl(entityType, spaceName, datasource);
     const entities = await fetch(url).then(response => response.json());
@@ -188,7 +193,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
    * @param datasource The name of the datasource.
    * @return The ID of the space.
    */
-  async getSpaceId(spaceName: string, datasource: string): Promise<string> {
+  async getSpaceId(spaceName: string, datasource: string | { uid: string; type: string }): Promise<string> {
     const url = await this.getUrl('spaces', '', datasource);
     const entities = await fetch(url).then(response => response.json());
     const entityNameFixed = getTemplateSrv().replace(spaceName);
