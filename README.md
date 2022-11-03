@@ -66,6 +66,21 @@ yarn build
 mage -v
 ```
 
+# Proxy support
+
+The backend plugin respects the `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` environment variables.
+
+HTTPS proxies with custom certificates must embed the CA cert to work correctly. The `Dockerfile` before demonstrates how to add
+a custom certificate:
+
+```yaml
+FROM octopussamples/grafana
+
+USER root
+COPY octo.domain.local.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+```
+
 # GitHub Actions
 
 This project is built and published via [GitHub Actions](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/actions).
