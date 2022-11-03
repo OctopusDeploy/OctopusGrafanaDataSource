@@ -68,11 +68,10 @@ mage -v
 
 # Proxy support
 
-The backend plugin respects the `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` environment variables.
+The backend plugin respects the `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` environment variables. The [go documentation](https://pkg.go.dev/golang.org/x/net/http/httpproxy#FromEnvironment)
+describes the format of these variables.
 
 HTTPS proxies with custom certificates must embed the CA cert to work correctly. 
-The [go documentation](https://pkg.go.dev/golang.org/x/net/http/httpproxy#FromEnvironment)
-describes the format of these variables.
 
 The `Dockerfile` below demonstrates how to add a custom certificate:
 
