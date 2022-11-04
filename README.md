@@ -83,6 +83,12 @@ COPY octo.domain.local.crt /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 ```
 
+Create the Docker container with the command:
+
+```bash
+docker run -d -p 3000:3000 --name=grafana --add-host=octo.domain.local:192.168.0.232 grafana_cert
+```
+
 # GitHub Actions
 
 This project is built and published via [GitHub Actions](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/actions).
