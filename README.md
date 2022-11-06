@@ -86,7 +86,7 @@ RUN update-ca-certificates
 Create the Docker container with the command:
 
 ```bash
-docker run -d -p 3000:3000 --name=grafana --add-host=octo.domain.local:192.168.0.232 grafana_cert
+docker run -d -p 3000:3000 -e HTTPS_PROXY="https://octo.domain.local:443" --name=grafana --add-host=octo.domain.local:192.168.0.232 grafana_cert
 ```
 
 # GitHub Actions
