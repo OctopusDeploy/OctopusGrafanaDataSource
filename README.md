@@ -66,6 +66,29 @@ yarn build
 mage -v
 ```
 
+# Proxy support
+
+The backend plugin respects the `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` environment variables. The [go documentation](https://pkg.go.dev/golang.org/x/net/http/httpproxy#FromEnvironment)
+describes the format of these variables.
+
+HTTPS proxies with custom certificates must embed the CA cert to work correctly. 
+
+The `Dockerfile` below demonstrates how to add a custom certificate:
+
+```yaml
+FROM octopussamples/grafana
+
+USER root
+COPY octo.domain.local.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+```
+
+Create the Docker container with the command:
+
+```bash
+docker run -d -p 3000:3000 -e HTTPS_PROXY="https://octo.domain.local:443" --name=grafana --add-host=octo.domain.local:192.168.0.232 grafana_cert
+```
+
 # GitHub Actions
 
 This project is built and published via [GitHub Actions](https://github.com/OctopusDeploy/OctopusGrafanaDataSource/actions).
