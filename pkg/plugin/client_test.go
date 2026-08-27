@@ -32,7 +32,7 @@ func TestResourceURLValidation(t *testing.T) {
 	}{
 		{name: "spaced resource", resourceType: "projects", spaceID: "Spaces-1", wantURL: "https://example.octopus.app/api/Spaces-1/projects/all"},
 		{name: "space agnostic resource", resourceType: "spaces", spaceID: "Spaces-1", wantURL: "https://example.octopus.app/api/spaces/all"},
-		{name: "no all endpoint", resourceType: "deployments", spaceID: "Spaces-1", wantURL: "https://example.octopus.app/api/Spaces-1/deployments"},
+		{name: "no all endpoint", resourceType: "deployments", spaceID: "Spaces-1", wantURL: "https://example.octopus.app/api/Spaces-1/deployments?take=2147483647"},
 		{name: "unspaced", resourceType: "environments", spaceID: "", wantURL: "https://example.octopus.app/api/environments/all"},
 		{name: "unknown resource type", resourceType: "certificates-of-authenticity", wantErr: true},
 		{name: "path traversal resource type", resourceType: "../users", wantErr: true},

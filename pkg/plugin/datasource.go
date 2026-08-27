@@ -225,7 +225,7 @@ func (d *Datasource) handleReportingQuery(ctx context.Context, qm queryModel, sp
 
 	response := d.dispatchReportingQuery(ctx, qm, spaceID, deployments)
 	if (qm.Format == formatTimeSeries || qm.Format == formatTable) && !anyDeploymentMatches(&qm, deployments) {
-		d.appendEmptyResultNotice(ctx, &response, spaceID, projectID, environmentID)
+		d.appendEmptyResultNotice(ctx, &response, qm, spaceID, projectID, environmentID)
 	}
 	return response
 }
@@ -256,9 +256,14 @@ func anyDeploymentMatches(qm *queryModel, deployments *Deployments) bool {
 // panel is usually a time range that predates or postdates the deployment
 // history rather than an error. The newest matching deployment is looked up
 // so the user knows what range would return data.
-func (d *Datasource) appendEmptyResultNotice(ctx context.Context, response *backend.DataResponse, spaceID string, projectID string, environmentID string) {
+func (d *Datasource) appendEmptyResultNotice(ctx context.Context, response *backend.DataResponse, qm queryModel, spaceID string, projectID string, environmentID string) {
 	text := "No deployments completed in the selected time range for the selected filters."
-	if latest, ok := d.latestDeploymentTime(ctx, spaceID, projectID, environmentID); ok {
+
+	// The lookup below only filters by project and environment, so the
+	// timestamp is only meaningful when no other filters are active.
+	onlyLookupFilters := empty(qm.ChannelName) && empty(qm.TenantName) && empty(qm.ReleaseVersion) && empty(qm.TaskState)
+
+	if latest, ok := d.latestDeploymentTime(ctx, spaceID, projectID, environmentID); ok && onlyLookupFilters {
 		text = fmt.Sprintf(
 			"No deployments completed in the selected time range for the selected filters. The most recent matching deployment was created %s.",
 			latest.UTC().Format("2006-01-02 15:04 UTC"))
@@ -290,6 +295,16 @@ func (d *Datasource) handleDeploymentsAnnotationQuery(ctx context.Context, qm qu
 	projectID, environmentID, err := d.lookupProjectAndEnvironment(ctx, qm, spaceID, state)
 	if err != nil {
 		return backend.ErrDataResponse(backend.StatusInternal, err.Error())
+	}
+
+	// Unlike the reporting feed queries there is no client side name
+	// filtering here, so a filter name that no longer resolves to an ID must
+	// fail rather than silently returning every deployment.
+	if !empty(qm.ProjectName) && empty(projectID) {
+		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("project %q was not found", qm.ProjectName))
+	}
+	if !empty(qm.EnvironmentName) && empty(environmentID) {
+		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("environment %q was not found", qm.EnvironmentName))
 	}
 
 	deployments, err := d.client.getDeployments(ctx, spaceID, projectID, environmentID)

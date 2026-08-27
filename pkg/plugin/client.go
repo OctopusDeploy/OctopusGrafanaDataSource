@@ -192,7 +192,18 @@ func (c *octopusClient) resourceURL(resourceType string, spaceID string) (string
 		segments = append(segments, "all")
 	}
 
-	return url.JoinPath(c.server, segments...)
+	requestURL, err := url.JoinPath(c.server, segments...)
+	if err != nil {
+		return "", err
+	}
+
+	// Collections without an /all endpoint are paginated; request everything
+	// in one page to match the /all semantics of the other resource types.
+	if resourceTypesWithoutAllEndpoint[resourceType] {
+		requestURL += "?take=2147483647"
+	}
+
+	return requestURL, nil
 }
 
 // getAllResources returns a map of resource names (or versions for releases)
@@ -209,7 +220,15 @@ func (c *octopusClient) getAllResources(ctx context.Context, resourceType string
 	}
 
 	var parsedResults []BaseResource
-	if err := json.Unmarshal(body, &parsedResults); err != nil {
+	if resourceTypesWithoutAllEndpoint[resourceType] {
+		// These collection endpoints return a paginated object with an Items
+		// array rather than a bare array.
+		var paged PagedResources
+		if err := json.Unmarshal(body, &paged); err != nil {
+			return nil, fmt.Errorf("could not parse the %s response: %w", resourceType, err)
+		}
+		parsedResults = paged.Items
+	} else if err := json.Unmarshal(body, &parsedResults); err != nil {
 		return nil, fmt.Errorf("could not parse the %s response: %w", resourceType, err)
 	}
 

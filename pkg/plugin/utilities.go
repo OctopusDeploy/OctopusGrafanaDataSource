@@ -16,6 +16,13 @@ func minInt64(x, y int64) int64 {
 	return y
 }
 
+func maxDuration(x, y time.Duration) time.Duration {
+	if x > y {
+		return x
+	}
+	return y
+}
+
 func parseTime(timeString string) time.Time {
 	parsedTime, err := time.Parse(releaseHistoryDateFormat, timeString)
 	if err == nil {

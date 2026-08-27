@@ -252,6 +252,54 @@ func TestQueryTableHasNoNoticeWhenDeploymentsMatch(t *testing.T) {
 	}
 }
 
+func TestQueryDeploymentsResourceTable(t *testing.T) {
+	server := newMockOctopusServer(t)
+	ds := newTestDatasource(t, server.URL)
+
+	response := runQuery(t, ds, `{"format":"deployments","spaceName":"Default"}`)
+	if response.Error != nil {
+		t.Fatalf("unexpected query error: %v", response.Error)
+	}
+
+	frame := response.Frames[0]
+	if frame.Rows() != 1 || frame.Fields[0].At(0).(string) != "Deploy Web release 1.0.1 to Dev" {
+		t.Errorf("unexpected deployments table: %v", frame.Fields[0])
+	}
+}
+
+func TestQueryTableNoticeOmitsDateWithExtraFilters(t *testing.T) {
+	server := newMockOctopusServer(t)
+	ds := newTestDatasource(t, server.URL)
+
+	// The latest-deployment lookup only understands the project and
+	// environment filters, so a channel filter must suppress the timestamp.
+	response := runQuery(t, ds, `{"format":"table","spaceName":"Default","channelName":"NoSuchChannel"}`)
+	if response.Error != nil {
+		t.Fatalf("unexpected query error: %v", response.Error)
+	}
+
+	frame := response.Frames[0]
+	if frame.Meta == nil || len(frame.Meta.Notices) != 1 {
+		t.Fatalf("expected 1 notice, got %+v", frame.Meta)
+	}
+	if strings.Contains(frame.Meta.Notices[0].Text, "most recent matching deployment") {
+		t.Errorf("the notice should not claim a matching deployment date: %q", frame.Meta.Notices[0].Text)
+	}
+}
+
+func TestQueryAnnotationDeploymentsRejectsUnknownProject(t *testing.T) {
+	server := newMockOctopusServer(t)
+	ds := newTestDatasource(t, server.URL)
+
+	response := runQuery(t, ds, `{"format":"annotation-deployments","spaceName":"Default","projectName":"NoSuchProject"}`)
+	if response.Error == nil {
+		t.Fatal("expected an error for an unresolvable project filter")
+	}
+	if !strings.Contains(response.Error.Error(), "NoSuchProject") {
+		t.Errorf("unexpected error: %v", response.Error)
+	}
+}
+
 func TestQueryRejectsUnknownFormat(t *testing.T) {
 	server := newMockOctopusServer(t)
 	ds := newTestDatasource(t, server.URL)

@@ -74,5 +74,11 @@ func validateServerURL(server string) (string, error) {
 		return "", errors.New("the Octopus server URL must include a host")
 	}
 
+	// The server URL is used as a base for building request URLs, so a query
+	// string or fragment would corrupt every request built from it.
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", errors.New("the Octopus server URL must not include a query string or fragment")
+	}
+
 	return trimmed, nil
 }

@@ -22,6 +22,8 @@ func TestLoadSettings(t *testing.T) {
 		{name: "missing server", jsonData: `{}`, wantErr: true},
 		{name: "bad scheme", jsonData: `{"server":"ftp://example"}`, wantErr: true},
 		{name: "no host", jsonData: `{"server":"https://"}`, wantErr: true},
+		{name: "query string", jsonData: `{"server":"https://example.octopus.app?foo=bar"}`, wantErr: true},
+		{name: "fragment", jsonData: `{"server":"https://example.octopus.app#section"}`, wantErr: true},
 		{name: "bad duration", jsonData: `{"server":"https://example","cacheDuration":"soon"}`, wantErr: true},
 		{name: "negative duration", jsonData: `{"server":"https://example","cacheDuration":"-1m"}`, wantErr: true},
 	}

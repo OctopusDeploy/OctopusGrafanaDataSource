@@ -13,20 +13,38 @@ import (
 // maxFrames caps the number of time buckets in a time series response.
 const maxFrames = 50
 
-func getBucketDuration(queryDuration time.Duration, bucketDuration time.Duration) (int64, time.Duration) {
-	buckets := minInt64(maxFrames, int64(queryDuration/bucketDuration))
+func getBucketDuration(queryDuration time.Duration, maxDataPoints int64) (int64, time.Duration) {
+	buckets := minInt64(maxFrames, maxDataPoints)
 	if buckets < 1 {
 		buckets = 1
 	}
-	return buckets, queryDuration / time.Duration(buckets)
+	bucketDuration := queryDuration / time.Duration(buckets)
+	if bucketDuration <= 0 {
+		// A zero-length or sub-nanosecond-per-bucket range collapses to a
+		// single bucket spanning at least a nanosecond, so the bucket maths
+		// below never divides by zero.
+		buckets = 1
+		bucketDuration = maxDuration(queryDuration, time.Nanosecond)
+	}
+	return buckets, bucketDuration
 }
 
-func setCompletedTimeRounded(deployments Deployments, bucketDuration time.Duration) {
+// setCompletedTimeRounded assigns each deployment completed within [from, to]
+// to the start time of its bucket. Buckets are half-open intervals measured
+// from the start of the query range, so a completion on the range boundary
+// still lands in a bucket instead of being dropped. Deployments outside the
+// range keep the zero time and never match a bucket.
+func setCompletedTimeRounded(deployments Deployments, from time.Time, to time.Time, buckets int64, bucketDuration time.Duration) {
 	for i := 0; i < len(deployments.Deployments); i++ {
 		parsed, err := time.Parse(releaseHistoryDateFormat, deployments.Deployments[i].CompletedTime)
-		if err == nil {
-			deployments.Deployments[i].CompletedTimeRounded = parsed.Round(bucketDuration)
+		if err != nil || parsed.Before(from) || parsed.After(to) {
+			continue
 		}
+		index := int64(parsed.Sub(from) / bucketDuration)
+		if index >= buckets {
+			index = buckets - 1
+		}
+		deployments.Deployments[i].CompletedTimeRounded = from.Add(bucketDuration * time.Duration(index))
 	}
 }
 
@@ -56,96 +74,92 @@ func (d *Datasource) queryTimeSeries(ctx context.Context, qm queryModel, spaceID
 	}
 
 	// Work out how long the buckets should be
-	buckets, bucketDuration := getBucketDuration(query.TimeRange.Duration(), time.Duration(int64(query.TimeRange.Duration())/maxDataPoints))
+	buckets, bucketDuration := getBucketDuration(query.TimeRange.Duration(), maxDataPoints)
 
 	// get the bucket start time for each deployment
-	setCompletedTimeRounded(deployments, bucketDuration)
+	setCompletedTimeRounded(deployments, query.TimeRange.From, query.TimeRange.To, buckets, bucketDuration)
 
 	for i := 0; i < int(buckets); i++ {
 		bucketTotalTime := []uint32{}
 		bucketTimeToRecovery := []uint32{}
 		bucketCycleTime := []uint32{}
 
-		// Get the time that starts this bucket
-		roundedTime := query.TimeRange.From.Add(bucketDuration * time.Duration(i)).Round(bucketDuration)
+		// Every bucket start is inside [From, To) by construction, which keeps
+		// all points inside the query range as Grafana requires.
+		roundedTime := query.TimeRange.From.Add(bucketDuration * time.Duration(i))
 
-		// Grafana really doesn't like it if you have records outside of the
-		// range, so make sure we are definitely inside the query range here.
-		if query.TimeRange.From.Before(roundedTime) && query.TimeRange.To.After(roundedTime) {
+		count := 0
 
-			count := 0
+		for index, deployment := range deployments.Deployments {
+			// Make sure the deployment matches the query filters, and the
+			// deployment completion time matches the start of this bucket
+			if includeDeployment(&qm, &deployment) && deployment.CompletedTimeRounded.Equal(roundedTime) {
 
-			for index, deployment := range deployments.Deployments {
-				// Make sure the deployment matches the query filters, and the
-				// deployment completion time matches the start of this bucket
-				if includeDeployment(&qm, &deployment) && deployment.CompletedTimeRounded.Equal(roundedTime) {
+				thisCycleTime := uint32(0)
 
-					thisCycleTime := uint32(0)
+				// Don't make the extra API calls if we don't need to
+				if qm.AverageCycleTimeField || qm.TotalCycleTimeField {
+					// Get the time from when the release was created. This
+					// is only available while the release is still in the
+					// database, as the release creation date is not stored
+					// by the reporting endpoint.
+					releaseDetails, err := d.client.getRelease(ctx, spaceID, deployment.ReleaseId)
 
-					// Don't make the extra API calls if we don't need to
-					if qm.AverageCycleTimeField || qm.TotalCycleTimeField {
-						// Get the time from when the release was created. This
-						// is only available while the release is still in the
-						// database, as the release creation date is not stored
-						// by the reporting endpoint.
-						releaseDetails, err := d.client.getRelease(ctx, spaceID, deployment.ReleaseId)
-
-						if err == nil {
-							diff := parseTime(deployment.CompletedTime).Sub(releaseDetails.AssembledDate).Seconds()
-							bucketCycleTime = append(bucketCycleTime, uint32(diff))
-							thisCycleTime = uint32(diff)
-						}
-					}
-
-					count++
-
-					// If this task was a failure, scan forward to the next success
-					thisTimeToRecovery := getTimeToSuccess(deployment, deployments.Deployments, index)
-
-					bucketTimeToRecovery = append(bucketTimeToRecovery, thisTimeToRecovery)
-					bucketTotalTime = append(bucketTotalTime, deployment.DurationSeconds)
-
-					if len(times) != 0 && times[len(times)-1].Equal(roundedTime) {
-						success[len(success)-1] += boolToInt(deployment.TaskState == "Success")
-						failure[len(failure)-1] += boolToInt(deployment.TaskState == "Failed")
-						cancelled[len(cancelled)-1] += boolToInt(deployment.TaskState == "Cancelled")
-						timedOut[len(timedOut)-1] += boolToInt(deployment.TaskState == "TimedOut")
-						totalDuration[len(totalDuration)-1] += deployment.DurationSeconds
-						avgDuration[len(avgDuration)-1] = arrayAverage(bucketTotalTime)
-						totalTimeToRecovery[len(totalTimeToRecovery)-1] += thisTimeToRecovery
-						avgTimeToRecovery[len(avgTimeToRecovery)-1] = arrayAverageDurationIgnoreZero(bucketTimeToRecovery)
-						avgCycleTime[len(avgCycleTime)-1] = arrayAverageDurationIgnoreZero(bucketCycleTime)
-						totalCycleTime[len(totalCycleTime)-1] += thisCycleTime
-					} else {
-						times = append(times, roundedTime)
-						success = append(success, boolToInt(deployment.TaskState == "Success"))
-						failure = append(failure, boolToInt(deployment.TaskState == "Failed"))
-						cancelled = append(cancelled, boolToInt(deployment.TaskState == "Cancelled"))
-						timedOut = append(timedOut, boolToInt(deployment.TaskState == "TimedOut"))
-						avgDuration = append(avgDuration, float32(deployment.DurationSeconds))
-						totalDuration = append(totalDuration, deployment.DurationSeconds)
-						totalTimeToRecovery = append(totalTimeToRecovery, thisTimeToRecovery)
-						avgTimeToRecovery = append(avgTimeToRecovery, thisTimeToRecovery)
-						avgCycleTime = append(avgCycleTime, thisCycleTime)
-						totalCycleTime = append(totalCycleTime, thisCycleTime)
+					if err == nil {
+						diff := parseTime(deployment.CompletedTime).Sub(releaseDetails.AssembledDate).Seconds()
+						bucketCycleTime = append(bucketCycleTime, uint32(diff))
+						thisCycleTime = uint32(diff)
 					}
 				}
-			}
 
-			// If no deployments fell inside this time bucket, add a zero record
-			if count == 0 {
-				times = append(times, roundedTime)
-				success = append(success, 0)
-				failure = append(failure, 0)
-				cancelled = append(cancelled, 0)
-				timedOut = append(timedOut, 0)
-				avgDuration = append(avgDuration, 0)
-				totalDuration = append(totalDuration, 0)
-				totalTimeToRecovery = append(totalTimeToRecovery, 0)
-				avgTimeToRecovery = append(avgTimeToRecovery, 0)
-				avgCycleTime = append(avgCycleTime, 0)
-				totalCycleTime = append(totalCycleTime, 0)
+				count++
+
+				// If this task was a failure, scan forward to the next success
+				thisTimeToRecovery := getTimeToSuccess(deployment, deployments.Deployments, index)
+
+				bucketTimeToRecovery = append(bucketTimeToRecovery, thisTimeToRecovery)
+				bucketTotalTime = append(bucketTotalTime, deployment.DurationSeconds)
+
+				if len(times) != 0 && times[len(times)-1].Equal(roundedTime) {
+					success[len(success)-1] += boolToInt(deployment.TaskState == "Success")
+					failure[len(failure)-1] += boolToInt(deployment.TaskState == "Failed")
+					cancelled[len(cancelled)-1] += boolToInt(deployment.TaskState == "Cancelled")
+					timedOut[len(timedOut)-1] += boolToInt(deployment.TaskState == "TimedOut")
+					totalDuration[len(totalDuration)-1] += deployment.DurationSeconds
+					avgDuration[len(avgDuration)-1] = arrayAverage(bucketTotalTime)
+					totalTimeToRecovery[len(totalTimeToRecovery)-1] += thisTimeToRecovery
+					avgTimeToRecovery[len(avgTimeToRecovery)-1] = arrayAverageDurationIgnoreZero(bucketTimeToRecovery)
+					avgCycleTime[len(avgCycleTime)-1] = arrayAverageDurationIgnoreZero(bucketCycleTime)
+					totalCycleTime[len(totalCycleTime)-1] += thisCycleTime
+				} else {
+					times = append(times, roundedTime)
+					success = append(success, boolToInt(deployment.TaskState == "Success"))
+					failure = append(failure, boolToInt(deployment.TaskState == "Failed"))
+					cancelled = append(cancelled, boolToInt(deployment.TaskState == "Cancelled"))
+					timedOut = append(timedOut, boolToInt(deployment.TaskState == "TimedOut"))
+					avgDuration = append(avgDuration, float32(deployment.DurationSeconds))
+					totalDuration = append(totalDuration, deployment.DurationSeconds)
+					totalTimeToRecovery = append(totalTimeToRecovery, thisTimeToRecovery)
+					avgTimeToRecovery = append(avgTimeToRecovery, thisTimeToRecovery)
+					avgCycleTime = append(avgCycleTime, thisCycleTime)
+					totalCycleTime = append(totalCycleTime, thisCycleTime)
+				}
 			}
+		}
+
+		// If no deployments fell inside this time bucket, add a zero record
+		if count == 0 {
+			times = append(times, roundedTime)
+			success = append(success, 0)
+			failure = append(failure, 0)
+			cancelled = append(cancelled, 0)
+			timedOut = append(timedOut, 0)
+			avgDuration = append(avgDuration, 0)
+			totalDuration = append(totalDuration, 0)
+			totalTimeToRecovery = append(totalTimeToRecovery, 0)
+			avgTimeToRecovery = append(avgTimeToRecovery, 0)
+			avgCycleTime = append(avgCycleTime, 0)
+			totalCycleTime = append(totalCycleTime, 0)
 		}
 	}
 

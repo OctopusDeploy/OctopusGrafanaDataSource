@@ -15,7 +15,7 @@
         "type": "query",
         "datasource": {
           "type": "octopus-deploy-xmlfeed",
-          "uid": "PC2A0C60F9AE34CD1"
+          "uid": "octopus-deploy"
         },
         "query": {
           "refId": "A",
@@ -40,7 +40,7 @@
         "iconColor": "rgba(0, 211, 255, 1)",
         "datasource": {
           "type": "octopus-deploy-xmlfeed",
-          "uid": "PC2A0C60F9AE34CD1"
+          "uid": "octopus-deploy"
         },
         "target": {
           "refId": "Anno",
@@ -65,7 +65,7 @@
       },
       "datasource": {
         "type": "octopus-deploy-xmlfeed",
-        "uid": "PC2A0C60F9AE34CD1"
+        "uid": "octopus-deploy"
       },
       "fieldConfig": {
         "defaults": {
@@ -108,7 +108,7 @@
       },
       "datasource": {
         "type": "octopus-deploy-xmlfeed",
-        "uid": "PC2A0C60F9AE34CD1"
+        "uid": "octopus-deploy"
       },
       "targets": [
         {
@@ -132,7 +132,7 @@
       },
       "datasource": {
         "type": "octopus-deploy-xmlfeed",
-        "uid": "PC2A0C60F9AE34CD1"
+        "uid": "octopus-deploy"
       },
       "targets": [
         {

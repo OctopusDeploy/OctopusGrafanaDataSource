@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: 'Octopus Deploy'
+    uid: 'octopus-deploy'
     type: 'octopus-deploy-xmlfeed'
     access: proxy
     isDefault: false

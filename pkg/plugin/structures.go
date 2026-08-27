@@ -16,6 +16,12 @@ type BaseResource struct {
 	Version string `json:"Version"`
 }
 
+// PagedResources is the shape of paginated collection endpoints such as
+// /api/{space}/deployments and /api/{space}/releases.
+type PagedResources struct {
+	Items []BaseResource `json:"Items"`
+}
+
 type PlainDeploymentItems struct {
 	Items []PlainDeployment `json:"Items"`
 }
