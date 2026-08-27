@@ -1,0 +1,146 @@
+{
+  "uid": "octopus-sample",
+  "title": "Octopus Deployments (Sample)",
+  "timezone": "browser",
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "templating": {
+    "list": [
+      {
+        "name": "space",
+        "label": "Space",
+        "type": "query",
+        "datasource": {
+          "type": "octopus-deploy-xmlfeed",
+          "uid": "PC2A0C60F9AE34CD1"
+        },
+        "query": {
+          "refId": "A",
+          "entityName": "spaces",
+          "spaceName": ""
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "Meanski",
+          "value": "Meanski"
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Deployments",
+        "enable": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "datasource": {
+          "type": "octopus-deploy-xmlfeed",
+          "uid": "PC2A0C60F9AE34CD1"
+        },
+        "target": {
+          "refId": "Anno",
+          "format": "annotation-deploymentreport",
+          "spaceName": "$space",
+          "projectName": "",
+          "environmentName": ""
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Deployments over time",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "octopus-deploy-xmlfeed",
+        "uid": "PC2A0C60F9AE34CD1"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "timeseries",
+          "spaceName": "$space",
+          "projectName": "",
+          "environmentName": "",
+          "successField": true,
+          "failureField": true,
+          "cancelledField": true,
+          "timedOutField": true,
+          "totalDurationField": false,
+          "averageDurationField": true,
+          "totalTimeToRecoveryField": false,
+          "averageTimeToRecoveryField": false,
+          "totalCycleTimeField": false,
+          "averageCycleTimeField": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Deployment history",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 16,
+        "h": 9
+      },
+      "datasource": {
+        "type": "octopus-deploy-xmlfeed",
+        "uid": "PC2A0C60F9AE34CD1"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "spaceName": "$space",
+          "projectName": "",
+          "environmentName": ""
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Environments",
+      "gridPos": {
+        "x": 16,
+        "y": 9,
+        "w": 8,
+        "h": 9
+      },
+      "datasource": {
+        "type": "octopus-deploy-xmlfeed",
+        "uid": "PC2A0C60F9AE34CD1"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "environments",
+          "spaceName": "$space"
+        }
+      ]
+    }
+  ]
+}

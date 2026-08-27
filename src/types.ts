@@ -1,4 +1,5 @@
-import { DataQuery, DataSourceJsonData } from '@grafana/data';
+import { DataSourceJsonData } from '@grafana/data';
+import { DataQuery } from '@grafana/schema';
 
 export interface MyQuery extends DataQuery {
   spaceName?: string;
@@ -9,19 +10,20 @@ export interface MyQuery extends DataQuery {
   releaseVersion?: string;
   taskState?: string;
   format?: string;
-  successField: boolean;
-  failureField: boolean;
-  timedOutField: boolean;
-  cancelledField: boolean;
-  totalDurationField: boolean;
-  averageDurationField: boolean;
-  totalTimeToRecoveryField: boolean;
-  averageTimeToRecoveryField: boolean;
-  totalCycleTimeField: boolean;
-  averageCycleTimeField: boolean;
+  successField?: boolean;
+  failureField?: boolean;
+  timedOutField?: boolean;
+  cancelledField?: boolean;
+  totalDurationField?: boolean;
+  averageDurationField?: boolean;
+  totalTimeToRecoveryField?: boolean;
+  averageTimeToRecoveryField?: boolean;
+  totalCycleTimeField?: boolean;
+  averageCycleTimeField?: boolean;
 }
 
-export const defaultQuery: Partial<MyQuery> = {
+export const DEFAULT_QUERY: Partial<MyQuery> = {
+  format: 'timeseries',
   successField: true,
   failureField: true,
   timedOutField: true,
@@ -31,6 +33,20 @@ export const defaultQuery: Partial<MyQuery> = {
   totalTimeToRecoveryField: true,
   averageTimeToRecoveryField: true,
 };
+
+/**
+ * Annotation queries are regular queries with one of these formats. Legacy
+ * annotations stored the unprefixed format names, which are migrated in
+ * prepareAnnotation.
+ */
+export const ANNOTATION_FORMAT_PREFIX = 'annotation-';
+export const ANNOTATION_FORMAT_DEPLOYMENT_REPORT = 'annotation-deploymentreport';
+export const ANNOTATION_FORMAT_DEPLOYMENTS = 'annotation-deployments';
+
+export interface MyVariableQuery extends DataQuery {
+  spaceName: string;
+  entityName: string;
+}
 
 /**
  * These are options configured for each DataSource instance

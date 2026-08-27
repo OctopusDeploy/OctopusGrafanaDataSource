@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: 'Octopus samples'
+    orgId: 1
+    type: file
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

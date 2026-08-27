@@ -1,0 +1,8 @@
+services:
+  grafana:
+    extends:
+      file: .config/docker-compose-base.yaml
+      service: grafana
+    environment:
+      OCTOPUS_SERVER: ${OCTOPUS_SERVER:-}
+      OCTOPUS_API_KEY: ${OCTOPUS_API_KEY:-}

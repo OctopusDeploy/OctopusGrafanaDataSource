@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: 'Octopus Deploy'
+    type: 'octopus-deploy-xmlfeed'
+    access: proxy
+    isDefault: false
+    orgId: 1
+    version: 1
+    editable: true
+    jsonData:
+      server: '${OCTOPUS_SERVER}'
+      cacheDuration: '1m'
+    secureJsonData:
+      apiKey: '${OCTOPUS_API_KEY}'
