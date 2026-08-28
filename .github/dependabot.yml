@@ -14,6 +14,25 @@ updates:
     commit-message:
       prefix: 'chore'
       include: 'scope'
+    ignore:
+      # eslint 10 is not yet supported by the plugin ecosystem
+      # (eslint-plugin-react caps at eslint ^9.7). Remove when it catches up.
+      - dependency-name: 'eslint'
+        versions: ['>=10']
+      - dependency-name: '@grafana/eslint-config'
+        versions: ['>=10']
+      # @grafana/* 13.2+ requires React 19; take these as part of a
+      # deliberate React 19 upgrade rather than a dependency bump.
+      - dependency-name: '@grafana/data'
+        versions: ['>=13.2']
+      - dependency-name: '@grafana/runtime'
+        versions: ['>=13.2']
+      - dependency-name: '@grafana/schema'
+        versions: ['>=13.2']
+      - dependency-name: '@grafana/ui'
+        versions: ['>=13.2']
+      - dependency-name: '@grafana/i18n'
+        versions: ['>=13.2']
     groups:
       unit-test:
         patterns:
