@@ -1,13 +1,23 @@
-# This GitHub Action automates the process of building Grafana plugins.
-# (For more information, see https://github.com/grafana/plugin-actions/blob/main/build-plugin/README.md)
+# Builds, packages and publishes the plugin as a GitHub release when a
+# version tag (e.g. v2.0.0) is pushed.
+#
+# This intentionally does not use grafana/plugin-actions/build-plugin: that
+# action runs the plugin validator with no way to tolerate expected errors,
+# and this plugin keeps its pre-pattern legacy ID (octopus-deploy-xmlfeed)
+# for dashboard compatibility, which the validator always reports as an
+# error. The steps below mirror the CI build and tolerate only that one
+# error.
+#
+# The plugin is distributed unsigned; see the Signing section of README.md.
 name: Release
 
 on:
   push:
     tags:
-      - 'v*' # Run workflow on version tags, e.g. v1.0.0.
+      - 'v*'
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   release:
@@ -19,13 +29,83 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: grafana/plugin-actions/build-plugin@build-plugin/v1.2.0
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v6
         with:
-          # The action defaults to Go 1.25, but go.mod requires 1.26.
-          go-version: '1.26'
-        # Uncomment to enable plugin signing
-        # (For more info on how to generate the access policy token see https://grafana.com/developers/plugin-tools/publish-a-plugin/sign-a-plugin#generate-an-access-policy-token)
-        # Make sure to save the token in your repository secrets
-        #policy_token: $
-        # Usage of GRAFANA_API_KEY is deprecated, prefer `policy_token` option above
-        #grafana_token: $
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build backend
+        uses: magefile/mage-action@a662bd8c29d8106879588cfff83b2faf6e6f59db # v4.0.0
+        with:
+          version: latest
+          args: buildAll
+
+      - name: Get plugin metadata
+        id: metadata
+        run: |
+          export GRAFANA_PLUGIN_ID=$(cat dist/plugin.json | jq -r .id)
+          export GRAFANA_PLUGIN_VERSION=$(cat dist/plugin.json | jq -r .info.version)
+          export GRAFANA_PLUGIN_ARTIFACT=${GRAFANA_PLUGIN_ID}-${GRAFANA_PLUGIN_VERSION}.zip
+
+          echo "plugin-id=${GRAFANA_PLUGIN_ID}" >> $GITHUB_OUTPUT
+          echo "plugin-version=${GRAFANA_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+          echo "archive=${GRAFANA_PLUGIN_ARTIFACT}" >> $GITHUB_OUTPUT
+
+      - name: Check tag matches the plugin version
+        run: |
+          if [ "v${PLUGIN_VERSION}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match the plugin version ${PLUGIN_VERSION}."
+            exit 1
+          fi
+        env:
+          PLUGIN_VERSION: ${{ steps.metadata.outputs.plugin-version }}
+
+      - name: Package plugin
+        run: |
+          mv dist ${PLUGIN_ID}
+          zip ${ARCHIVE} ${PLUGIN_ID} -r
+          sha1sum ${ARCHIVE} | cut -f1 -d' ' > ${ARCHIVE}.sha1
+        env:
+          ARCHIVE: ${{ steps.metadata.outputs.archive }}
+          PLUGIN_ID: ${{ steps.metadata.outputs.plugin-id }}
+
+      - name: Check plugin.json
+        # The plugin keeps its pre-pattern legacy ID (octopus-deploy-xmlfeed)
+        # so existing dashboards and provisioned datasources keep working, so
+        # the validator's ID pattern error is expected and tolerated. Any
+        # other validation error still fails the build.
+        run: |
+          docker run --pull=always \
+            -v $PWD/${ARCHIVE}:/archive.zip \
+            grafana/plugin-validator-cli -analyzer=metadatavalid /archive.zip 2>&1 | tee validator.log || true
+          if grep '^error:' validator.log | grep -v 'id: Does not match pattern' | grep -q .; then
+            echo 'Plugin validation reported unexpected errors.'
+            exit 1
+          fi
+        env:
+          ARCHIVE: ${{ steps.metadata.outputs.archive }}
+
+      - name: Create GitHub release
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "${ARCHIVE}" "${ARCHIVE}.sha1" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "Release ${GITHUB_REF_NAME}" \
+            --notes "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md) for what changed.
+
+          This plugin is distributed unsigned. Follow the [installation instructions](https://github.com/${GITHUB_REPOSITORY}#download) to allow Grafana to load it."
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE: ${{ steps.metadata.outputs.archive }}
