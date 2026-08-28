@@ -21,6 +21,10 @@ updates:
         versions: ['>=10']
       - dependency-name: '@grafana/eslint-config'
         versions: ['>=10']
+      # TypeScript 6/7 (the native compiler generation) is not yet supported
+      # by the toolchain; upgrade deliberately when the ecosystem catches up.
+      - dependency-name: 'typescript'
+        versions: ['>=6']
       # @grafana/* 13.2+ requires React 19; take these as part of a
       # deliberate React 19 upgrade rather than a dependency bump.
       - dependency-name: '@grafana/data'
