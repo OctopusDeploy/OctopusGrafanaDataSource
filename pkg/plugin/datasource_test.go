@@ -397,6 +397,43 @@ func TestCheckHealthWarnsOnPlainHTTP(t *testing.T) {
 	}
 }
 
+func TestCrossOriginRedirectsAreRefused(t *testing.T) {
+	leaked := false
+	other := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("X-Octopus-ApiKey") != "" {
+			leaked = true
+		}
+		rw.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(other.Close)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/redirect", func(rw http.ResponseWriter, req *http.Request) {
+		http.Redirect(rw, req, other.URL, http.StatusFound)
+	})
+	mux.HandleFunc("/api/local", func(rw http.ResponseWriter, req *http.Request) {
+		http.Redirect(rw, req, "/api/target", http.StatusFound)
+	})
+	mux.HandleFunc("/api/target", func(rw http.ResponseWriter, req *http.Request) {
+		rw.WriteHeader(http.StatusOK)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	ds := newTestDatasource(t, server.URL)
+
+	if _, err := ds.client.get(context.Background(), server.URL+"/api/redirect", 0); err == nil {
+		t.Error("expected an error for a cross origin redirect")
+	}
+	if leaked {
+		t.Error("the API key was sent to another host on a redirect")
+	}
+
+	if _, err := ds.client.get(context.Background(), server.URL+"/api/local", 0); err != nil {
+		t.Errorf("a same origin redirect should be followed, got: %v", err)
+	}
+}
+
 func TestCheckHealthRejectsBadKey(t *testing.T) {
 	server := newMockOctopusServer(t)
 	ds := newTestDatasource(t, server.URL)

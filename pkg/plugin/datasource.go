@@ -54,6 +54,19 @@ func NewDatasource(ctx context.Context, source backend.DataSourceInstanceSetting
 		return nil, fmt.Errorf("could not create the HTTP client: %w", err)
 	}
 
+	// Go only strips Authorization and Cookie headers on cross origin
+	// redirects, so the X-Octopus-ApiKey header would otherwise follow a
+	// redirect to any host. Refuse redirects that leave the configured origin
+	// (an upgrade from http to https on the same host is allowed).
+	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		origin := via[0].URL
+		sameScheme := req.URL.Scheme == origin.Scheme || (origin.Scheme == "http" && req.URL.Scheme == "https")
+		if !sameScheme || req.URL.Host != origin.Host {
+			return fmt.Errorf("refusing to follow a redirect from %s to %s because it would expose the API key", origin.Host, req.URL.Host)
+		}
+		return nil
+	}
+
 	ds := &Datasource{
 		settings: settings,
 		client: &octopusClient{
