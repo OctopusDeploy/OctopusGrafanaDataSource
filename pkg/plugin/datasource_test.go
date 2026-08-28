@@ -252,6 +252,42 @@ func TestQueryTableHasNoNoticeWhenDeploymentsMatch(t *testing.T) {
 	}
 }
 
+func TestQueriesOnlySeeTheirOwnTimeRange(t *testing.T) {
+	server := newMockOctopusServer(t)
+	ds := newTestDatasource(t, server.URL)
+
+	// The reporting feed is fetched once for the widest range across all
+	// queries in a request. The narrow query must not see deployments that
+	// only fall inside the wide query's range.
+	wideRange := testTimeRange()
+	narrowRange := backend.TimeRange{
+		From: time.Date(2020, 6, 1, 9, 0, 0, 0, time.UTC),
+		To:   time.Date(2020, 6, 1, 11, 0, 0, 0, time.UTC),
+	}
+
+	resp, err := ds.QueryData(context.Background(), &backend.QueryDataRequest{
+		Queries: []backend.DataQuery{
+			{RefID: "wide", JSON: []byte(`{"format":"table","spaceName":"Default"}`), TimeRange: wideRange, MaxDataPoints: 100},
+			{RefID: "narrow", JSON: []byte(`{"format":"table","spaceName":"Default"}`), TimeRange: narrowRange, MaxDataPoints: 100},
+		},
+	})
+	if err != nil {
+		t.Fatalf("QueryData returned an error: %v", err)
+	}
+
+	if rows := resp.Responses["wide"].Frames[0].Rows(); rows != 2 {
+		t.Errorf("expected 2 rows for the wide query, got %d", rows)
+	}
+
+	narrow := resp.Responses["narrow"].Frames[0]
+	if narrow.Rows() != 1 {
+		t.Fatalf("expected 1 row for the narrow query, got %d", narrow.Rows())
+	}
+	if got := narrow.Fields[1].At(0).(string); got != "Deployments-1" {
+		t.Errorf("the narrow query returned the wrong deployment: %v", got)
+	}
+}
+
 func TestQueryDeploymentsResourceTable(t *testing.T) {
 	server := newMockOctopusServer(t)
 	ds := newTestDatasource(t, server.URL)

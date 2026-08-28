@@ -126,6 +126,13 @@ func getTimeToSuccess(deployment Deployment, deployments []Deployment, index int
 // includeDeployment will determine if a deployment record satisfies the
 // current query filters.
 func includeDeployment(qm *queryModel, deployment *Deployment) bool {
+	// The reporting feed is shared across all queries in a request and spans
+	// the widest of their time ranges, so every deployment must be checked
+	// against this query's own range.
+	if deployment.CompletedTimeParsed.Before(qm.Query.TimeRange.From) || deployment.CompletedTimeParsed.After(qm.Query.TimeRange.To) {
+		return false
+	}
+
 	if !empty(qm.ReleaseVersion) && deployment.ReleaseVersion != qm.ReleaseVersion {
 		return false
 	}
